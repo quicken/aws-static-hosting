@@ -137,3 +137,4 @@ shared-local-instance.db
 .build
 
 /**/docs/sdk/
+bin/
