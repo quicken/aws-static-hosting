@@ -1,0 +1,38 @@
+{
+  "project": {
+    "name": "react-hosting-lambda",
+    "description": "Lambda function for serving React apps with signed S3 URLs",
+    "type": "aws-lambda",
+    "runtime": "nodejs20.x"
+  },
+  "build": {
+    "commands": [
+      "npm install",
+      "npm run build",
+      "npm run package"
+    ]
+  },
+  "test": {
+    "framework": "vitest",
+    "commands": [
+      "npm test"
+    ]
+  },
+  "deployment": {
+    "target": "aws-lambda",
+    "artifact": "bin/lambda-{name}-{version}.zip"
+  },
+  "environment": {
+    "variables": {
+      "BUCKET_NAME": "Required S3 bucket name",
+      "AWS_REGION": "ap-southeast-2"
+    }
+  },
+  "codeGeneration": {
+    "requirements": [
+      "All generated code must include JSDoc style comments for functions, classes, and complex logic",
+      "Helper functions must be organized in a lib folder within src, separated by concern (e.g., s3.ts, routing.ts, cache.ts)",
+      "Main handler files should focus only on request orchestration and import utilities from lib modules"
+    ]
+  }
+}

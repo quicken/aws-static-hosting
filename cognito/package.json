@@ -1,0 +1,23 @@
+{
+  "name": "react-hosting",
+  "version": "1.0.0",
+  "description": "Lambda@Edge authorization function for Cognito-protected React apps",
+  "main": "dist/handler.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "package": "npm run build && mkdir -p bin && cd dist && zip -r ../bin/lambda-$(node -p \"require('../package.json').name\")-$(node -p \"require('../package.json').version\").zip ."
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "jwks-client": "^2.0.5"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^24.3.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
