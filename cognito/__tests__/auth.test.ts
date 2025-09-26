@@ -1,45 +1,45 @@
 import { describe, it, expect } from 'vitest';
 import { extractJwtToken } from '../src/lib/auth';
-import { APIGatewayProxyEvent } from 'aws-lambda';
+import { CloudFrontRequest } from 'aws-lambda';
 
 describe('Auth utilities', () => {
   describe('extractJwtToken', () => {
-    it('should extract token from Cookie header', () => {
-      const event = {
+    it('should extract token from cookie header', () => {
+      const request = {
         headers: {
-          Cookie: 'cognito-token=eyJhbGciOiJIUzI1NiJ9.test.signature; other=value'
+          cookie: [{ key: 'Cookie', value: 'cognito-token=eyJhbGciOiJIUzI1NiJ9.test.signature; other=value' }]
         }
-      } as APIGatewayProxyEvent;
+      } as CloudFrontRequest;
 
-      expect(extractJwtToken(event)).toBe('eyJhbGciOiJIUzI1NiJ9.test.signature');
-    });
-
-    it('should extract token from cookie header (lowercase)', () => {
-      const event = {
-        headers: {
-          cookie: 'cognito-token=eyJhbGciOiJIUzI1NiJ9.test.signature'
-        }
-      } as APIGatewayProxyEvent;
-
-      expect(extractJwtToken(event)).toBe('eyJhbGciOiJIUzI1NiJ9.test.signature');
+      expect(extractJwtToken(request)).toBe('eyJhbGciOiJIUzI1NiJ9.test.signature');
     });
 
     it('should return null when no cookie header', () => {
-      const event = {
+      const request = {
         headers: {}
-      } as APIGatewayProxyEvent;
+      } as CloudFrontRequest;
 
-      expect(extractJwtToken(event)).toBeNull();
+      expect(extractJwtToken(request)).toBeNull();
     });
 
     it('should return null when cognito-token not found', () => {
-      const event = {
+      const request = {
         headers: {
-          Cookie: 'other-cookie=value'
+          cookie: [{ key: 'Cookie', value: 'other-cookie=value' }]
         }
-      } as APIGatewayProxyEvent;
+      } as CloudFrontRequest;
 
-      expect(extractJwtToken(event)).toBeNull();
+      expect(extractJwtToken(request)).toBeNull();
+    });
+
+    it('should handle cognito-token at different positions', () => {
+      const request = {
+        headers: {
+          cookie: [{ key: 'Cookie', value: 'first=value; cognito-token=xyz789; last=value' }]
+        }
+      } as CloudFrontRequest;
+
+      expect(extractJwtToken(request)).toBe('xyz789');
     });
   });
 });

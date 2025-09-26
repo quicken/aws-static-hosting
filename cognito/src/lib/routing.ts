@@ -8,10 +8,12 @@ export function isSpaRoute(pathname: string): boolean {
 }
 
 /**
- * Checks if the given pathname is in the public folder
+ * Checks if the given pathname is public (no authentication required)
  * @param pathname - The URL pathname to check
- * @returns True if pathname is public (no authentication required)
+ * @returns True if pathname is public
  */
 export function isPublicPath(pathname: string): boolean {
-  return pathname.startsWith('/public');
+  return pathname === '/' || 
+         pathname === '/index.html' || 
+         pathname.startsWith('/public');
 }

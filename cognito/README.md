@@ -130,7 +130,7 @@ This approach provides centralized authentication for multiple React application
 
 ```
 src/
-├── handler.ts          # Main Lambda handler
+├── index.ts           # Main Lambda handler
 └── lib/
     ├── routing.ts     # URL routing utilities (SPA route detection)
     └── auth.ts        # Cognito JWT validation and authentication
@@ -235,7 +235,7 @@ Add the Lambda@Edge function to your CloudFront distribution's default behavior:
      --function-name react-hosting-lambda \
      --runtime nodejs20.x \
      --role arn:aws:iam::ACCOUNT:role/lambda-execution-role \
-     --handler handler.handler \
+     --handler index.handler \
      --zip-file fileb://bin/lambda-react-hosting-1.0.0.zip \
      --environment Variables='{COGNITO_USER_POOL_ID=your-user-pool-id,COGNITO_CLIENT_ID=your-client-id,AWS_REGION=ap-southeast-2}'
    ```
@@ -251,13 +251,13 @@ Add the Lambda@Edge function to your CloudFront distribution's default behavior:
    - Navigate to AWS Lambda console
    - Select your function or create new one
    - Upload the zip file from `bin/lambda-react-hosting-{version}.zip`
-   - Set handler to `handler.handler`
+   - Set handler to `index.handler`
    - Configure environment variables
 
 ### Lambda Configuration
 
 - **Runtime**: Node.js 20.x
-- **Handler**: `handler.handler`
+- **Handler**: `index.handler`
 - **Memory**: 128-256 MB (depending on app size)
 - **Timeout**: 30 seconds
 - **IAM Role**: Must have S3 read permissions for the bucket

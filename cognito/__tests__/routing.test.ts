@@ -20,18 +20,20 @@ describe('Routing utilities', () => {
       expect(isSpaRoute('/assets/style.css')).toBe(false);
       expect(isSpaRoute('/favicon.ico')).toBe(false);
       expect(isSpaRoute('/manifest.json')).toBe(false);
+      expect(isSpaRoute('/index.html')).toBe(false);
     });
   });
 
   describe('isPublicPath', () => {
     it('should return true for public paths', () => {
+      expect(isPublicPath('/')).toBe(true);
+      expect(isPublicPath('/index.html')).toBe(true);
       expect(isPublicPath('/public')).toBe(true);
       expect(isPublicPath('/public/login')).toBe(true);
       expect(isPublicPath('/public/oauth/callback')).toBe(true);
     });
 
     it('should return false for protected paths', () => {
-      expect(isPublicPath('/')).toBe(false);
       expect(isPublicPath('/dashboard')).toBe(false);
       expect(isPublicPath('/users/123')).toBe(false);
     });
@@ -39,7 +41,8 @@ describe('Routing utilities', () => {
 
   describe('README routing examples', () => {
     const examples = [
-      { path: '/', isSpa: true, isPublic: false, description: 'Root - SPA Protected' },
+      { path: '/', isSpa: true, isPublic: true, description: 'Root - SPA Public Landing' },
+      { path: '/index.html', isSpa: false, isPublic: true, description: 'Index HTML - Public Landing' },
       { path: '/dashboard', isSpa: true, isPublic: false, description: 'Dashboard - SPA Protected' },
       { path: '/public/login', isSpa: true, isPublic: true, description: 'Login - SPA Public' },
       { path: '/public/oauth/callback', isSpa: true, isPublic: true, description: 'OAuth - SPA Public' },
