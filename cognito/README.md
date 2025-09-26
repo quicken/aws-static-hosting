@@ -52,7 +52,7 @@ This approach provides secure, scalable authorization while leveraging CloudFron
 
 ## Routing Logic
 
-The Lambda@Edge function uses a **two-step routing decision process**:
+The Lambda@Edge function uses a **smart routing decision process** that distinguishes between direct file requests and SPA routes:
 
 ### Step 1: Route Type Detection
 
@@ -64,9 +64,20 @@ The Lambda@Edge function uses a **two-step routing decision process**:
 ### Step 2: Authorization Classification
 
 **Public Path Detection** (`isPublicPath`):
-- **Public Paths**: Routes starting with `/public` (no authentication required)
+- **Public Paths**: `/`, `/index.html`, and routes starting with `/public` (no authentication required)
 - **Protected Paths**: All other SPA routes (authentication required)
-- **Logic**: `pathname.startsWith('/public')`
+- **Logic**: `pathname === '/' || pathname === '/index.html' || pathname.startsWith('/public')`
+
+### Step 3: Smart URI Handling
+
+**Direct File Requests** (pass through to S3):
+- `/index.html` → No rewrite, served directly from S3
+- `/public/index.html` → No rewrite, served directly from S3
+
+**SPA Routes** (rewrite for React Router):
+- `/` → Rewrite to `/index.html`
+- `/dashboard` → Rewrite to `/index.html` (after auth check)
+- `/public/login` → Rewrite to `/public/index.html`
 
 ### Complete Routing Flow
 
@@ -76,24 +87,34 @@ Request Path
 Is SPA Route? (no file extension)
     ↓ No → Return 404 Not Found
     ↓ Yes
-Is Public Path? (/public/*)
-    ↓ Yes → Return 200 (CloudFront serves public/index.html)
+Is Public Path? (/, /index.html, /public/*)
+    ↓ Yes → Continue (no auth required)
     ↓ No (Protected Path)
 Has Valid JWT Token?
-    ↓ Yes → Return 200 (CloudFront serves index.html)
     ↓ No → Return 302 Redirect to /public/login
+    ↓ Yes → Continue (authenticated)
+Is Direct File Request? (/index.html, /public/index.html)
+    ↓ Yes → Pass through to S3 (no rewrite)
+    ↓ No → Rewrite URI for SPA routing
+CloudFront serves file from S3
 ```
 
 ### Route Examples
 
-| Path | Type | Access | Result |
-|------|------|--------|--------|
-| `/` | SPA | Protected | Auth required → index.html |
-| `/dashboard` | SPA | Protected | Auth required → index.html |
-| `/public/login` | SPA | Public | No auth → public/index.html |
-| `/public/oauth/callback` | SPA | Public | No auth → public/index.html |
-| `/assets/main.js` | Asset | N/A | 404 Not Found |
-| `/favicon.ico` | Asset | N/A | 404 Not Found |
+| Path | Type | Access | URI Rewrite | Result |
+|------|------|--------|-------------|--------|
+| `/` | SPA | Public | `/index.html` | Main app |
+| `/dashboard` | SPA | Protected | `/index.html` | Main app (auth required) |
+| `/index.html` | SPA | Public | No rewrite | Direct file serve |
+| `/public/login` | SPA | Public | `/public/index.html` | Login app |
+| `/public/index.html` | SPA | Public | No rewrite | Direct file serve |
+| `/assets/main.js` | Asset | N/A | N/A | 404 Not Found |
+
+This approach ensures:
+- **No false 404s** in CloudFront logs
+- **Direct file access** works normally
+- **SPA routing** functions correctly
+- **Authentication** is enforced where needed
 
 ## Problem Statement
 
@@ -145,14 +166,16 @@ src/
 ## How It Works
 
 ### Public Routes (No Authentication Required)
-- **Public folder** (`/public/*`): Login application and OAuth endpoints
-- Lambda returns 200 (authorized) - CloudFront serves `public/index.html`
+- **Root path** (`/`): Rewrites to `/index.html` - serves main application without authentication
+- **Direct file** (`/index.html`): Passes through to S3 - serves main application directly
+- **Public folder** (`/public/*`): SPA routes rewrite to `/public/index.html`, direct files pass through
+- Lambda returns 200 (authorized) - CloudFront serves the appropriate HTML file
 - No JWT validation required
 
 ### Protected Routes (Authentication Required)
-- **All other routes** (`/`, `/dashboard`, `/users/123`):
+- **Protected SPA routes** (`/dashboard`, `/users/123`):
 - Lambda validates JWT token from `cognito-token` cookie
-- On valid token: Returns 200 (authorized) - CloudFront serves `index.html`
+- On valid token: Rewrites to `/index.html` - CloudFront serves main app
 - On invalid/missing token: Returns 302 redirect to `/public/login`
 
 ### Asset Handling

@@ -83,6 +83,22 @@ describe('Lambda@Edge Handler', () => {
     expect(result).toEqual(event.Records[0].cf.request);
   });
 
+  it('should pass through direct file requests without rewriting', async () => {
+    const { handler } = await import('../src/index');
+    
+    // Test /index.html direct request
+    const indexEvent = createEvent('/index.html');
+    const indexResult = await handler(indexEvent);
+    expect(indexResult).toEqual(indexEvent.Records[0].cf.request);
+    expect(indexEvent.Records[0].cf.request.uri).toBe('/index.html'); // No rewrite
+    
+    // Test /public/index.html direct request
+    const publicIndexEvent = createEvent('/public/index.html');
+    const publicIndexResult = await handler(publicIndexEvent);
+    expect(publicIndexResult).toEqual(publicIndexEvent.Records[0].cf.request);
+    expect(publicIndexEvent.Records[0].cf.request.uri).toBe('/public/index.html'); // No rewrite
+  });
+
   it('should return 404 for asset requests', async () => {
     const { handler } = await import('../src/index');
     const event = createEvent('/assets/main.js');

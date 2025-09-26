@@ -19,7 +19,7 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
     const isPublic = isPublicPath(requestPath);
     console.log("Route classification:", { uri: requestPath, isPublic, isSpa: isSpaRoute(requestPath) });
 
-    // Handle SPA routes (check authorization)
+    // Handle SPA routes (check authorization and rewrite)
     if (isSpaRoute(requestPath)) {
       // Check authentication for protected routes
       if (!isPublic) {
@@ -44,16 +44,49 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
         }
       }
 
-      // Rewrite URI to serve correct HTML file
-      if (isPublic) {
-        request.uri = "/public/index.html";
+      // Only rewrite URI for SPA routes (not direct file requests)
+      if (requestPath !== "/index.html" && requestPath !== "/public/index.html") {
+        if (isPublic) {
+          request.uri = "/public/index.html";
+        } else {
+          request.uri = "/index.html";
+        }
+        console.log("SPA route rewritten to:", request.uri);
       } else {
-        request.uri = "/index.html";
+        console.log("Direct file request, passing through:", requestPath);
       }
 
-      console.log("Request authorized, rewritten URI:", request.uri);
       return request;
     } else {
+      // Handle HTML files with authentication check
+      if (requestPath.endsWith('.html')) {
+        // Check authentication for protected HTML files
+        if (!isPublic) {
+          console.log("Checking authentication for protected HTML file");
+          const authenticated = await isAuthenticated(request);
+          console.log("Authentication result:", authenticated);
+
+          if (!authenticated) {
+            console.log("Redirecting unauthenticated user to login");
+            return {
+              status: "302",
+              statusDescription: "Found",
+              headers: {
+                location: [
+                  {
+                    key: "Location",
+                    value: "/public/login",
+                  },
+                ],
+              },
+            };
+          }
+        }
+        
+        console.log("HTML file request, passing through:", requestPath);
+        return request;
+      }
+      
       // Asset requests return 404 - React apps should bundle assets or use CDN
       console.log("Asset request, returning 404");
       return {
