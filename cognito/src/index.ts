@@ -9,10 +9,8 @@ import { isAuthenticated } from "./lib/auth";
  */
 export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponseEvent) => {
   try {
-    //console.log("Lambda@Edge START:", JSON.stringify(event, null, 2));
-
     if (event.Records[0].cf.config.eventType !== "viewer-request") {
-      event.Records[0].cf.request;
+      return event.Records[0].cf.request;
     }
 
     const request = event.Records[0].cf.request;
@@ -46,8 +44,14 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
         }
       }
 
-      // Authorized - let CloudFront continue to origin
-      console.log("Request authorized, continuing to origin");
+      // Rewrite URI to serve correct HTML file
+      if (isPublic) {
+        request.uri = "/public/index.html";
+      } else {
+        request.uri = "/index.html";
+      }
+
+      console.log("Request authorized, rewritten URI:", request.uri);
       return request;
     } else {
       // Asset requests return 404 - React apps should bundle assets or use CDN

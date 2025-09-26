@@ -1,6 +1,6 @@
 {
   "name": "react-hosting",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Lambda@Edge authorization function for Cognito-protected React apps",
   "main": "dist/index.js",
   "scripts": {
