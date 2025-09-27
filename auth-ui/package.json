@@ -1,0 +1,38 @@
+{
+  "name": "aws-cognito-auth-reference",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS Cognito authentication reference implementation with React 19",
+  "type": "module",
+  "dependencies": {
+    "@cloudscape-design/components": "^3.0.0",
+    "@cloudscape-design/global-styles": "^1.0.0",
+    "oidc-client-ts": "^3.3.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-oidc-context": "^3.3.0",
+    "react-router-dom": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^5.0.2",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
+  },
+  "scripts": {
+    "start": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  }
+}

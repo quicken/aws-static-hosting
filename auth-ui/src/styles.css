@@ -1,0 +1,64 @@
+/* Service Grid Styles */
+.service-grid {
+  padding: 20px;
+}
+
+.service-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 20px;
+}
+
+.service-list-item {
+  margin-bottom: 10px;
+}
+
+.service-link {
+  color: #007bff;
+  text-decoration: underline;
+}
+
+/* Service Page Styles */
+.service-page {
+  padding: 20px;
+}
+
+.service-form {
+  margin-top: 20px;
+}
+
+.form-group {
+  margin-bottom: 10px;
+}
+
+.service-info {
+  margin-top: 20px;
+}
+
+/* Navigation Styles */
+.nav-container {
+  margin-top: 30px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.btn-primary {
+  background-color: #007bff;
+}
+
+.btn-success {
+  background-color: #28a745;
+}
+
+.btn-form {
+  padding: 8px 16px;
+}
