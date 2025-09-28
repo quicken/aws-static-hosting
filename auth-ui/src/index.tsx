@@ -12,6 +12,7 @@ import AuthTest from './component/AuthTest';
 import AuthCallback from './component/AuthCallback';
 import AuthHandler from './component/AuthHandler';
 import LogoutHandler from './component/LogoutHandler';
+import TokenRefreshHandler from './component/TokenRefreshHandler';
 
 /**
  * Cognito OIDC configuration
@@ -38,6 +39,9 @@ const App: React.FC = () => {
   return (
     <Router basename={import.meta.env.VITE_AUTH_BASE_PATH}>
       <AppLayoutWrapper>
+        {/* Token refresh handler - runs globally */}
+        <TokenRefreshHandler />
+        
         <Routes>
           {/* Headless auth handler - main production route */}
           <Route path="/" element={<AuthHandler />} />
