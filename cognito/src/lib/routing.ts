@@ -15,5 +15,6 @@ export function isSpaRoute(pathname: string): boolean {
 export function isPublicPath(pathname: string): boolean {
   return pathname === '/' || 
          pathname === '/index.html' || 
-         pathname.startsWith('/public');
+         pathname.startsWith('/public') ||
+         pathname.startsWith('/auth');
 }

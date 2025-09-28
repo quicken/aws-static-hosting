@@ -20,26 +20,48 @@ This Lambda@Edge function acts as a **pure authorization gateway** for Cognito-p
 
 ### Public vs Protected Route Authorization
 
-**Public Routes** (`/public/*`):
+**Public Routes** (`/public/*`, `/auth/*`):
 - **No Authentication Required**: Lambda returns 200 (allow)
-- **Login Application**: Contains the OAuth/PKCE login flow
-- **CloudFront Serves**: `public/index.html` from S3
-- **Examples**: `/public/login`, `/public/oauth/callback`
+- **Auth Service**: Contains the headless OAuth/PKCE authentication flows
+- **Login Application**: Contains the OAuth/PKCE login flow (legacy)
+- **CloudFront Serves**: `auth/index.html` or `public/index.html` from S3
+- **Examples**: `/auth/`, `/auth/callback`, `/auth/logout`, `/public/login`, `/public/oauth/callback`
 
 **Protected Routes** (everything else):
 - **Authentication Required**: Lambda validates JWT token in `cognito-token` cookie
 - **Valid Token**: Lambda returns 200 (allow), CloudFront serves `index.html`
-- **Invalid/Missing Token**: Lambda returns 302 redirect to `/public/login`
+- **Invalid/Missing Token**: Lambda returns 302 redirect to `/auth/?return_url=<original-path>`
 - **Examples**: `/`, `/dashboard`, `/users/123`
 
-### Authentication Flow
+### Authentication Flow with Return URL Preservation
 
 1. **Unauthenticated User** visits `/dashboard`
 2. **Lambda@Edge**: No valid JWT token found
-3. **Redirect**: Lambda returns 302 redirect to `/public/login`
-4. **Login Process**: User authenticates via Cognito OAuth + PKCE
-5. **Token Set**: Login app sets `cognito-token` cookie with JWT
-6. **Access Granted**: Lambda authorizes, CloudFront serves protected content
+3. **Redirect with Return URL**: Lambda returns 302 redirect to `/auth/?return_url=%2Fdashboard`
+4. **Auth Service**: Processes OAuth flow and preserves return URL in OAuth state parameter
+5. **Login Process**: User authenticates via Cognito OAuth + PKCE
+6. **Token Set**: Auth service sets `cognito-token` cookie with JWT
+7. **Return to Origin**: User is redirected back to original `/dashboard` URL
+8. **Access Granted**: Lambda authorizes, CloudFront serves protected content
+
+#### Why Return URL Preservation Matters
+
+**User Experience:**
+- **Seamless Navigation**: Users land exactly where they intended after login
+- **No Lost Context**: Deep links and bookmarks work correctly
+- **Reduced Friction**: No need to navigate back to desired page
+
+**Security Benefits:**
+- **OAuth State Parameter**: Uses secure OAuth 2.0 state parameter (not query strings)
+- **CSRF Protection**: State parameter prevents cross-site request forgery
+- **URL Validation**: Prevents open redirect attacks through strict validation
+- **Same-Origin Policy**: Only allows redirects to same domain
+
+**Technical Implementation:**
+- **Lambda@Edge**: Captures original URL and passes as `return_url` parameter
+- **Auth Service**: Stores return URL in OAuth state for security
+- **Cognito Integration**: Preserves state through entire OAuth flow
+- **Validation**: Ensures return URL is safe before redirecting
 
 ### Request Flow
 
@@ -188,10 +210,18 @@ src/
 Your S3 bucket should contain:
 ```
 bucket-name/
-├── index.html          # Main HTML file
+├── index.html          # Main protected application
+├── auth/
+│   └── index.html      # Headless auth service (handles OAuth flows)
 └── public/
-    └── index.html      # Login application HTML
+    └── index.html      # Public content (optional)
 ```
+
+**Integration with Auth Service:**
+- **`/auth/*`** routes serve the headless authentication service
+- **Auth service** handles OAuth flows and sets secure JWT cookies
+- **Lambda@Edge** redirects unauthenticated users to `/auth/?return_url=<path>`
+- **After login** users are redirected back to their original destination
 
 ## Deployment
 

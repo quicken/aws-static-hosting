@@ -28,7 +28,7 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
         console.log("Authentication result:", authenticated);
 
         if (!authenticated) {
-          console.log("Redirecting unauthenticated user to login");
+          console.log("Redirecting unauthenticated user to auth service with return URL");
           return {
             status: "302",
             statusDescription: "Found",
@@ -36,7 +36,7 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
               location: [
                 {
                   key: "Location",
-                  value: "/public/login",
+                  value: `/auth/?return_url=${encodeURIComponent(request.uri)}`,
                 },
               ],
             },
@@ -45,8 +45,10 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
       }
 
       // Only rewrite URI for SPA routes (not direct file requests)
-      if (requestPath !== "/index.html" && requestPath !== "/public/index.html") {
-        if (isPublic) {
+      if (requestPath !== "/index.html" && requestPath !== "/public/index.html" && requestPath !== "/auth/index.html") {
+        if (requestPath.startsWith('/auth')) {
+          request.uri = "/auth/index.html";
+        } else if (isPublic) {
           request.uri = "/public/index.html";
         } else {
           request.uri = "/index.html";
@@ -67,7 +69,7 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
           console.log("Authentication result:", authenticated);
 
           if (!authenticated) {
-            console.log("Redirecting unauthenticated user to login");
+            console.log("Redirecting unauthenticated user to auth service with return URL");
             return {
               status: "302",
               statusDescription: "Found",
@@ -75,7 +77,7 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
                 location: [
                   {
                     key: "Location",
-                    value: "/public/login",
+                    value: `/auth/?return_url=${encodeURIComponent(request.uri)}`,
                   },
                 ],
               },

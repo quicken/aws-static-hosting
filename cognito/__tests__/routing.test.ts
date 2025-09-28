@@ -31,6 +31,10 @@ describe('Routing utilities', () => {
       expect(isPublicPath('/public')).toBe(true);
       expect(isPublicPath('/public/login')).toBe(true);
       expect(isPublicPath('/public/oauth/callback')).toBe(true);
+      expect(isPublicPath('/auth')).toBe(true);
+      expect(isPublicPath('/auth/')).toBe(true);
+      expect(isPublicPath('/auth/callback')).toBe(true);
+      expect(isPublicPath('/auth/logout')).toBe(true);
     });
 
     it('should return false for protected paths', () => {
@@ -46,6 +50,9 @@ describe('Routing utilities', () => {
       { path: '/dashboard', isSpa: true, isPublic: false, description: 'Dashboard - SPA Protected' },
       { path: '/public/login', isSpa: true, isPublic: true, description: 'Login - SPA Public' },
       { path: '/public/oauth/callback', isSpa: true, isPublic: true, description: 'OAuth - SPA Public' },
+      { path: '/auth/', isSpa: true, isPublic: true, description: 'Auth Service - SPA Public' },
+      { path: '/auth/callback', isSpa: true, isPublic: true, description: 'Auth Callback - SPA Public' },
+      { path: '/auth/logout', isSpa: true, isPublic: true, description: 'Auth Logout - SPA Public' },
       { path: '/assets/main.js', isSpa: false, isPublic: false, description: 'JS Asset' },
       { path: '/favicon.ico', isSpa: false, isPublic: false, description: 'Icon Asset' },
     ];

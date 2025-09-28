@@ -58,7 +58,7 @@ describe('Lambda@Edge Handler', () => {
       headers: {
         location: [{
           key: 'Location',
-          value: '/public/login'
+          value: '/auth/?return_url=%2Fdashboard'
         }]
       }
     });
@@ -77,7 +77,7 @@ describe('Lambda@Edge Handler', () => {
 
   it('should continue to origin for public requests without authentication', async () => {
     const { handler } = await import('../src/index');
-    const event = createEvent('/public/login');
+    const event = createEvent('/auth/');
     const result = await handler(event);
 
     expect(result).toEqual(event.Records[0].cf.request);
