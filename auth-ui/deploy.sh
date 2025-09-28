@@ -21,6 +21,8 @@ if [ -z "$AWS_S3_BUCKET" ] || [ -z "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
     exit 1
 fi
 
+npm run build
+
 # Set AWS profile if specified
 PROFILE_FLAG=""
 if [ -n "$AWS_PROFILE" ]; then

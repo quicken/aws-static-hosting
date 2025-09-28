@@ -8,9 +8,10 @@ import {
 import { AuthProvider } from 'react-oidc-context';
 import '@cloudscape-design/global-styles/index.css';
 import AppLayoutWrapper from './component/AppLayout';
-import Dashboard from './component/Dashboard';
 import AuthTest from './component/AuthTest';
 import AuthCallback from './component/AuthCallback';
+import AuthHandler from './component/AuthHandler';
+import LogoutHandler from './component/LogoutHandler';
 
 /**
  * Cognito OIDC configuration
@@ -19,8 +20,8 @@ import AuthCallback from './component/AuthCallback';
 const cognitoAuthConfig = {
   authority: `https://cognito-idp.${import.meta.env.VITE_COGNITO_REGION}.amazonaws.com/${import.meta.env.VITE_COGNITO_USER_POOL_ID}`,
   client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
-  redirect_uri: window.location.origin + "/auth/return",
-  post_logout_redirect_uri: window.location.origin,
+  redirect_uri: window.location.origin + import.meta.env.VITE_AUTH_BASE_PATH + "/callback",
+  post_logout_redirect_uri: window.location.origin + import.meta.env.VITE_AUTH_BASE_PATH + "/",
   response_type: "code",
   scope: "openid email",
   automaticSilentRenew: true,
@@ -31,17 +32,31 @@ const cognitoAuthConfig = {
  * Main application component with routing configuration
  * @returns JSX element for the entire application
  */
-const App: React.FC = () => (
-  <Router>
-    <AppLayoutWrapper>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/auth-test" element={<AuthTest />} />
-        <Route path="/auth/return" element={<AuthCallback />} />
-      </Routes>
-    </AppLayoutWrapper>
-  </Router>
-);
+const App: React.FC = () => {
+  const isDebugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+  
+  return (
+    <Router basename={import.meta.env.VITE_AUTH_BASE_PATH}>
+      <AppLayoutWrapper>
+        <Routes>
+          {/* Headless auth handler - main production route */}
+          <Route path="/" element={<AuthHandler />} />
+          
+          {/* OIDC callback - always needed */}
+          <Route path="/callback" element={<AuthCallback />} />
+          
+          {/* Logout handler - always needed */}
+          <Route path="/logout" element={<LogoutHandler />} />
+          
+          {/* Debug routes - only in debug mode */}
+          {isDebugMode && (
+            <Route path="/debug" element={<AuthTest />} />
+          )}
+        </Routes>
+      </AppLayoutWrapper>
+    </Router>
+  );
+};
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

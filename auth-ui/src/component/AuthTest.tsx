@@ -110,12 +110,7 @@ const AuthTest: React.FC = () => {
                 ace={undefined}
                 value={auth.user.id_token || 'No ID token'}
                 language="json"
-                readOnly
-                preferences={{
-                  fontSize: 12,
-                  showLineNumbers: false,
-                  showGutter: false,
-                }}
+                onPreferencesChange={() => {}}
               />
             </Box>
 
@@ -125,12 +120,7 @@ const AuthTest: React.FC = () => {
                 ace={undefined}
                 value={auth.user.access_token || 'No access token'}
                 language="json"
-                readOnly
-                preferences={{
-                  fontSize: 12,
-                  showLineNumbers: false,
-                  showGutter: false,
-                }}
+                onPreferencesChange={() => {}}
               />
             </Box>
           </SpaceBetween>

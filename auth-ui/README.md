@@ -1,139 +1,205 @@
-# AWS Cognito Authentication Reference
+# AWS Cognito Headless Authentication Service
 
-A React 19 + TypeScript + Vite frontend application demonstrating AWS Cognito authentication flows.
+A React 19 + TypeScript + Vite headless authentication service for securing multiple applications within a CloudFront distribution using AWS Cognito and Lambda@Edge.
 
-## Overview
+## Architecture Overview
 
-This reference implementation demonstrates:
-- AWS Cognito User Pool authentication using OIDC
-- React OIDC Context integration
-- Token management and refresh
-- Protected routes and authentication state
-- CloudScape Design System UI components
+This service is designed to work as a centralized authentication handler in a multi-application CloudFront distribution where:
 
-## Authentication Flow
+- **Lambda@Edge** protects private routes by checking for valid JWT cookies
+- **Multiple Vite apps** sit behind the same CloudFront distribution
+- **Headless auth service** handles OAuth flows and sets secure JWT cookies
+- **Cognito Hosted UI** provides the actual login interface
 
-### OIDC Integration
-- **Authorization Code Flow**: Secure authentication with PKCE
-- **Token Management**: Automatic token refresh and storage
-- **User Profile**: Access to Cognito user attributes
+## Intended Flow
 
-## Getting Started
+```
+User requests /app1/dashboard
+    ↓
+Lambda@Edge checks JWT cookie
+    ↓
+Invalid/missing JWT → Redirect to /auth/?return_url=/app1/dashboard
+    ↓
+Auth service checks authentication status
+    ↓
+Not authenticated → Redirect to Cognito Hosted UI
+    ↓
+User authenticates → Cognito redirects to /auth/callback
+    ↓
+Auth service sets secure JWT cookie → Redirect to return_url
+    ↓
+Lambda@Edge validates JWT → Allow access to /app1/dashboard
+```
+
+## CloudFront Distribution Structure
+
+```
+yourdomain.com/
+├── /auth/          # This headless auth service
+├── /app1/          # Protected Vite application 1
+├── /app2/          # Protected Vite application 2
+├── /public/        # Public assets (no auth required)
+└── /               # Public home page
+```
+
+## Operating Modes
+
+### Production Mode (Headless)
+**Environment:** `VITE_DEBUG_MODE=false`
+
+- **`/auth/`** - Headless authentication handler
+- **`/auth/callback`** - OIDC callback processing
+- No debug UI exposed
+
+### Debug Mode (Development)
+**Environment:** `VITE_DEBUG_MODE=true`
+
+- **`/auth/`** - Headless authentication handler  
+- **`/auth/callback`** - OIDC callback processing
+- **`/auth/debug`** - Full authentication test interface
+
+## Key Features
+
+### Headless Operation
+- Processes OAuth flows without UI (uses Cognito Hosted UI)
+- Sets secure JWT cookies using best practices
+- Redirects back to original requested URL
+- Minimal footprint for production deployments
+
+### Lambda@Edge Integration
+- Designed to work with Lambda@Edge JWT validation
+- Handles session renewal and token refresh
+- Provides seamless user experience across multiple apps
+
+### Security Best Practices
+- HTTP-only secure cookies (when implemented server-side)
+- PKCE (Proof Key for Code Exchange) for OAuth
+- Automatic token refresh
+- Secure logout with Cognito hosted UI
+
+## Configuration
+
+### Environment Variables
+```bash
+# AWS Cognito Configuration
+VITE_COGNITO_REGION=us-east-1
+VITE_COGNITO_USER_POOL_ID=us-east-1_abc123
+VITE_COGNITO_CLIENT_ID=abc123def456
+VITE_COGNITO_DOMAIN=my-app-auth
+
+# Auth Service Configuration  
+VITE_AUTH_BASE_PATH=/auth
+VITE_DEBUG_MODE=false
+```
+
+### AWS Cognito Setup
+1. Create a Cognito User Pool
+2. Configure App Client with:
+   - Authorization code grant flow
+   - PKCE enabled
+   - Allowed callback URLs: `https://yourdomain.com/auth/callback`
+   - Allowed sign-out URLs: `https://yourdomain.com/auth/`
+   - OpenID Connect scopes: `openid`, `email`
+
+## Development
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
 - AWS Cognito User Pool configured
-
-### AWS Cognito Setup
-1. Create a Cognito User Pool in AWS Console
-2. Configure an App Client with:
-   - Authorization code grant flow
-   - PKCE enabled
-   - Allowed callback URLs: `http://localhost:5173/auth/return`
-   - Allowed sign-out URLs: `http://localhost:5173`
-   - OpenID Connect scopes: `openid`, `email`
+- CloudFront distribution (for production)
 
 ### Installation
 ```bash
 npm install
 ```
 
-### Configuration
-Update the OIDC configuration in `src/index.tsx`:
-```typescript
-const cognitoAuthConfig = {
-  authority: "https://cognito-idp.YOUR_REGION.amazonaws.com/YOUR_USER_POOL_ID",
-  client_id: "YOUR_CLIENT_ID",
-  redirect_uri: window.location.origin + "/auth/return",
-  post_logout_redirect_uri: window.location.origin,
-  response_type: "code",
-  scope: "openid email",
-  automaticSilentRenew: true,
-  loadUserInfo: true,
+### Development Server
+```bash
+npm start          # Runs with debug mode enabled
+```
+
+### Production Build
+```bash
+VITE_DEBUG_MODE=false npm run build
+```
+
+## Lambda@Edge Integration
+
+### JWT Validation Logic
+Your Lambda@Edge function should:
+
+1. Check for `auth_token` cookie
+2. Validate JWT signature and expiration
+3. If invalid/missing: redirect to `/auth/?return_url=${originalUrl}`
+4. If valid: allow request to proceed
+
+### Example Lambda@Edge Flow
+```javascript
+exports.handler = (event, context, callback) => {
+    const request = event.Records[0].cf.request;
+    const headers = request.headers;
+    
+    // Extract JWT from cookie
+    const authCookie = extractAuthCookie(headers.cookie);
+    
+    if (!isValidJWT(authCookie)) {
+        // Redirect to auth service
+        const response = {
+            status: '302',
+            headers: {
+                location: [{
+                    key: 'Location',
+                    value: `/auth/?return_url=${encodeURIComponent(request.uri)}`
+                }]
+            }
+        };
+        callback(null, response);
+    } else {
+        // Allow request
+        callback(null, request);
+    }
 };
 ```
-
-### Development
-```bash
-npm start          # Start development server
-npm test           # Run unit tests
-npm run build      # Build for production
-```
-
-## Project Structure
-
-```
-src/
-├── component/     # React components
-│   ├── AuthTest.tsx       # Authentication demo component
-│   ├── Dashboard.tsx      # Protected dashboard
-│   └── AuthCallback.tsx   # OIDC callback handler
-├── lib/          # Business logic
-│   └── utils.ts           # Utility functions
-├── types/        # TypeScript definitions
-└── styles.css    # Application styles
-__tests__/        # Unit tests
-```
-
-## Development Guidelines
-
-### Code Standards
-- Follow React 19 best practices
-- Use TypeScript strict mode
-- External CSS only (no inline styles)
-- JSDoc comments for all exports
-- 80% test coverage for business logic
-
-### Component Patterns
-- Function components with hooks
-- Props interfaces named `ComponentNameProps`
-- Use `React.memo()` for performance optimization
-- Semantic CSS class names
-
-## Features
-
-### Authentication Management
-- **Login Flow**: Secure OIDC authentication with AWS Cognito
-- **Token Display**: View ID and access tokens for debugging
-- **User Profile**: Display Cognito user attributes
-- **Session Management**: Automatic token refresh and logout
-
-### Protected Routes
-- **Route Protection**: Demonstrate protected content areas
-- **Authentication State**: Show different UI based on auth status
-- **Callback Handling**: Process OIDC authentication callbacks
-
-## Security Considerations
-
-- PKCE (Proof Key for Code Exchange) for secure authorization
-- Automatic token refresh to maintain sessions
-- Secure logout with Cognito hosted UI
-- No sensitive data stored in localStorage
-
-## Testing Strategy
-
-- Unit tests for business logic
-- Component testing with React Testing Library
-- Integration tests for API calls
-- E2E tests for critical workflows
 
 ## Deployment
 
 ### Build Process
 ```bash
-npm run build
+# Production build (headless mode)
+VITE_DEBUG_MODE=false npm run build
+
+# Deploy to S3 bucket mapped to /auth/* in CloudFront
+aws s3 sync dist/ s3://your-bucket/auth/ --delete
 ```
 
-### Environment Configuration
-- Development: Local development environment
-- Staging: Pre-production testing
-- Production: Live environment
+### CloudFront Behaviors
+Configure these behaviors in your CloudFront distribution:
+
+- **`/auth/*`** → S3 bucket with this auth service
+- **`/app1/*`** → S3 bucket with protected app 1  
+- **`/app2/*`** → S3 bucket with protected app 2
+- **`/public/*`** → S3 bucket with public assets (no Lambda@Edge)
+
+## Security Considerations
+
+- JWT cookies should be HTTP-only and Secure
+- Use Lambda@Edge for server-side JWT validation
+- Implement proper CORS headers for cross-origin requests
+- Regular token rotation and validation
+- Secure logout clears all authentication state
+
+## Use Cases
+
+This architecture is ideal for:
+- Multi-tenant SaaS applications
+- Microservices with shared authentication
+- Static site generators requiring authentication
+- Enterprise applications with multiple frontend apps
+- Any scenario requiring centralized auth with distributed apps
 
 ## Contributing
 
-1. Follow established code standards
-2. Write tests for new features
-3. Update documentation
-4. Use semantic commit messages
-5. Create pull requests for review
+1. Follow React 19 and TypeScript best practices
+2. Test both headless and debug modes
+3. Ensure Lambda@Edge compatibility
+4. Update documentation for architectural changes
