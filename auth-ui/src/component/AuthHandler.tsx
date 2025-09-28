@@ -17,12 +17,21 @@ const AuthHandler: React.FC = () => {
         // Set secure JWT cookie for Lambda@Edge
         setSecureJWTCookie(auth.user.access_token);
         
-        // Validate and redirect back to origin or specified return URL
-        const returnUrl = validateReturnUrl(searchParams.get('return_url')) || '/';
-        window.location.href = returnUrl;
+        // Get return URL from OAuth state or query parameter
+        const returnUrl = getReturnUrl(auth.user, searchParams);
+        const validatedUrl = validateReturnUrl(returnUrl) || '/';
+        
+        window.location.href = validatedUrl;
       } else if (!auth.isLoading && !auth.isAuthenticated) {
-        // Not authenticated, redirect to Cognito
-        auth.signinRedirect();
+        // Get return URL and encode it in OAuth state
+        const returnUrl = searchParams.get('return_url');
+        if (returnUrl && validateReturnUrl(returnUrl)) {
+          // Pass return URL via OAuth state parameter
+          auth.signinRedirect({ state: { returnUrl } });
+        } else {
+          // Standard login without return URL
+          auth.signinRedirect();
+        }
       }
     };
 
@@ -47,6 +56,19 @@ const AuthHandler: React.FC = () => {
       </div>
     </Container>
   );
+};
+
+/**
+ * Extract return URL from OAuth state or fallback to query parameter
+ */
+const getReturnUrl = (user: any, searchParams: URLSearchParams): string | null => {
+  // First try OAuth state (most secure)
+  if (user.state && typeof user.state === 'object' && user.state.returnUrl) {
+    return user.state.returnUrl;
+  }
+  
+  // Fallback to query parameter (less secure but compatible)
+  return searchParams.get('return_url');
 };
 
 /**
