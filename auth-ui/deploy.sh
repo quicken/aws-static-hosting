@@ -3,18 +3,18 @@
 # AWS S3 Deployment Script for Auth Service
 set -e
 
-# Load environment variables from .env.local
-if [ -f .env.local ]; then
-    export $(grep -v '^#' .env.local | xargs)
+# Load environment variables from .env.production
+if [ -f .env.production ]; then
+    export $(grep -v '^#' .env.production | xargs)
 else
-    echo "Error: .env.local file not found"
+    echo "Error: .env.production file not found"
     exit 1
 fi
 
 # Check required AWS deployment variables
 if [ -z "$AWS_S3_BUCKET" ] || [ -z "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
-    echo "Error: AWS_S3_BUCKET and AWS_CLOUDFRONT_DISTRIBUTION_ID must be set in .env.local"
-    echo "Add these lines to your .env.local:"
+    echo "Error: AWS_S3_BUCKET and AWS_CLOUDFRONT_DISTRIBUTION_ID must be set in .env.production"
+    echo "Add these lines to your .env.production:"
     echo "AWS_S3_BUCKET=your-bucket-name"
     echo "AWS_CLOUDFRONT_DISTRIBUTION_ID=your-distribution-id"
     echo "AWS_PROFILE=your-profile-name (optional)"
