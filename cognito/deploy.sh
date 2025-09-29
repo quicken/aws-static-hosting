@@ -4,18 +4,20 @@
 set -e
 
 # Configuration
-FUNCTION_NAME="react-hosting-lambda"
 REGION="us-east-1"  # Lambda@Edge must be deployed to us-east-1
 
 # Load environment variables if available
-if [ -f .env.local ]; then
-    export $(grep -v '^#' .env.local | xargs)
+if [ -f .env.production ]; then
+    export $(grep -v '^#' .env.production | xargs)
 fi
+
+# Set function name with fallback
+FUNCTION_NAME="${LAMBDA_FUNCTION_NAME:-react-hosting-lambda}"
 
 # Check required variables
 if [ -z "$COGNITO_USER_POOL_ID" ] || [ -z "$COGNITO_CLIENT_ID" ]; then
     echo "Error: COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID must be set"
-    echo "Set them in .env.local or as environment variables"
+    echo "Set them in .env.production or as environment variables"
     exit 1
 fi
 
@@ -53,13 +55,7 @@ aws lambda update-function-code \
     --region $REGION \
     --function-name $FUNCTION_NAME \
     --zip-file fileb://$ZIP_FILE \
-    $PROFILE_FLAG
-
-echo "🔄 Updating environment variables..."
-aws lambda update-function-configuration \
-    --region $REGION \
-    --function-name $FUNCTION_NAME \
-    --environment Variables="{COGNITO_USER_POOL_ID=$COGNITO_USER_POOL_ID,COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID,AWS_REGION=$AWS_REGION}" \
+    --no-cli-pager \
     $PROFILE_FLAG
 
 echo "📋 Publishing new version..."
@@ -67,6 +63,7 @@ VERSION_OUTPUT=$(aws lambda publish-version \
     --region $REGION \
     --function-name $FUNCTION_NAME \
     --description "Deployed $(date '+%Y-%m-%d %H:%M:%S')" \
+    --no-cli-pager \
     $PROFILE_FLAG)
 
 # Extract version number and ARN
@@ -84,24 +81,26 @@ if [ -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID" ]; then
     echo "📥 Getting current distribution configuration..."
     DIST_CONFIG=$(aws cloudfront get-distribution-config \
         --id $AWS_CLOUDFRONT_DISTRIBUTION_ID \
+        --no-cli-pager \
         $PROFILE_FLAG)
     
     ETAG=$(echo $DIST_CONFIG | jq -r '.ETag')
     
     # Update Lambda@Edge association in the config
     echo "🔧 Updating Lambda@Edge association..."
-    UPDATED_CONFIG=$(echo $DIST_CONFIG | jq --arg arn "$VERSION_ARN" '
+    UPDATED_CONFIG=$(echo $DIST_CONFIG | jq -r --arg arn "$VERSION_ARN" '
         .DistributionConfig.DefaultCacheBehavior.LambdaFunctionAssociations.Items[0].LambdaFunctionARN = $arn
     ')
     
     # Save updated config to temporary file
-    echo "$UPDATED_CONFIG" | jq '.DistributionConfig' > /tmp/distribution-config.json
+    echo "$UPDATED_CONFIG" | jq -r '.DistributionConfig' > /tmp/distribution-config.json
     
     # Update the distribution
     aws cloudfront update-distribution \
         --id $AWS_CLOUDFRONT_DISTRIBUTION_ID \
         --distribution-config file:///tmp/distribution-config.json \
         --if-match $ETAG \
+        --no-cli-pager \
         $PROFILE_FLAG
     
     # Clean up
