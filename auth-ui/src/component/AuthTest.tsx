@@ -1,16 +1,5 @@
 import React from 'react';
 import { useAuth } from 'react-oidc-context';
-import { 
-  Button, 
-  Container, 
-  Header, 
-  SpaceBetween, 
-  Alert, 
-  Spinner,
-  Box,
-  ColumnLayout,
-  CodeEditor
-} from '@cloudscape-design/components';
 
 /**
  * Authentication test component using react-oidc-context with Cognito
@@ -49,123 +38,101 @@ const AuthTest: React.FC = () => {
 
   if (auth.isLoading) {
     return (
-      <Container>
-        <Alert type="info" header="Loading Authentication">
-          <Spinner /> Checking authentication status...
-        </Alert>
-      </Container>
+      <div className="container">
+        <div className="alert info">
+          <div className="spinner"></div>
+          Checking authentication status...
+        </div>
+      </div>
     );
   }
 
   if (persistedError) {
     return (
-      <Container>
-        <Alert type="error" header="Authentication Error">
-          {persistedError.message}
-          <SpaceBetween size="s" direction="horizontal">
-            <Button onClick={() => setPersistedError(null)}>
+      <div className="container">
+        <div className="alert error">
+          <strong>Authentication Error:</strong> {persistedError.message}
+          <div style={{ marginTop: '10px' }}>
+            <button className="button secondary" onClick={() => setPersistedError(null)}>
               Dismiss
-            </Button>
-          </SpaceBetween>
-        </Alert>
-      </Container>
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (auth.isAuthenticated && auth.user) {
     return (
-      <Container>
-        <SpaceBetween size="l">
-          <Header variant="h1">Authentication Success</Header>
-          
-          <Alert type="success" header="Successfully Authenticated">
-            Welcome, {auth.user.profile?.email || 'User'}!
-          </Alert>
+      <div className="container">
+        <h1 className="header">Authentication Success</h1>
+        
+        <div className="alert success">
+          <strong>Successfully Authenticated:</strong> Welcome, {auth.user.profile?.email || 'User'}!
+        </div>
 
-          <ColumnLayout columns={2}>
-            <Box>
-              <Header variant="h3">User Profile</Header>
-              <SpaceBetween size="s">
-                <div><strong>Email:</strong> {auth.user.profile?.email}</div>
-                <div><strong>Name:</strong> {auth.user.profile?.name || 'Not provided'}</div>
-                <div><strong>Phone:</strong> {auth.user.profile?.phone_number || 'Not provided'}</div>
-                <div><strong>Subject:</strong> {auth.user.profile?.sub}</div>
-              </SpaceBetween>
-            </Box>
+        <div className="debug-section">
+          <h4>User Profile</h4>
+          <div><strong>Email:</strong> {auth.user.profile?.email}</div>
+          <div><strong>Name:</strong> {auth.user.profile?.name || 'Not provided'}</div>
+          <div><strong>Phone:</strong> {auth.user.profile?.phone_number || 'Not provided'}</div>
+          <div><strong>Subject:</strong> {auth.user.profile?.sub}</div>
+        </div>
 
-            <Box>
-              <Header variant="h3">Token Information</Header>
-              <SpaceBetween size="s">
-                <div><strong>Token Type:</strong> {auth.user.token_type}</div>
-                <div><strong>Expires At:</strong> {new Date(auth.user.expires_at * 1000).toLocaleString()}</div>
-                <div><strong>Scope:</strong> {auth.user.scope}</div>
-              </SpaceBetween>
-            </Box>
-          </ColumnLayout>
+        <div className="debug-section">
+          <h4>Token Information</h4>
+          <div><strong>Token Type:</strong> {auth.user.token_type}</div>
+          <div><strong>Expires At:</strong> {new Date(auth.user.expires_at * 1000).toLocaleString()}</div>
+          <div><strong>Scope:</strong> {auth.user.scope}</div>
+        </div>
 
-          <SpaceBetween size="m">
-            <Box>
-              <Header variant="h3">ID Token</Header>
-              <CodeEditor
-                ace={undefined}
-                value={auth.user.id_token || 'No ID token'}
-                language="json"
-                onPreferencesChange={() => {}}
-              />
-            </Box>
+        <div className="debug-section">
+          <h4>ID Token</h4>
+          <div className="code-block">{auth.user.id_token || 'No ID token'}</div>
+        </div>
 
-            <Box>
-              <Header variant="h3">Access Token</Header>
-              <CodeEditor
-                ace={undefined}
-                value={auth.user.access_token || 'No access token'}
-                language="json"
-                onPreferencesChange={() => {}}
-              />
-            </Box>
-          </SpaceBetween>
+        <div className="debug-section">
+          <h4>Access Token</h4>
+          <div className="code-block">{auth.user.access_token || 'No access token'}</div>
+        </div>
 
-          <SpaceBetween direction="horizontal" size="s">
-            <Button onClick={() => auth.removeUser()}>
-              Sign Out (Local)
-            </Button>
-            <Button variant="primary" onClick={handleSignOut}>
-              Sign Out (Cognito)
-            </Button>
-          </SpaceBetween>
-        </SpaceBetween>
-      </Container>
+        <div className="space-between">
+          <button className="button secondary" onClick={() => auth.removeUser()}>
+            Sign Out (Local)
+          </button>
+          <button className="button" onClick={handleSignOut}>
+            Sign Out (Cognito)
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <SpaceBetween size="l">
-        <Header variant="h1">AWS Cognito Authentication Test</Header>
-        
-        <Alert type="info" header="Authentication Required">
-          Please sign in to test the authentication flow with AWS Cognito.
-        </Alert>
+    <div className="container">
+      <h1 className="header">AWS Cognito Authentication Test</h1>
+      
+      <div className="alert info">
+        <strong>Authentication Required:</strong> Please sign in to test the authentication flow with AWS Cognito.
+      </div>
 
-        <SpaceBetween direction="horizontal" size="s">
-          <Button variant="primary" onClick={() => auth.signinRedirect()}>
-            Sign In with Cognito
-          </Button>
-          <Button onClick={handleSignOut}>
-            Sign Out
-          </Button>
-        </SpaceBetween>
+      <div className="space-between">
+        <button className="button" onClick={() => auth.signinRedirect()}>
+          Sign In with Cognito
+        </button>
+        <button className="button secondary" onClick={handleSignOut}>
+          Sign Out
+        </button>
+      </div>
 
-        <Alert type="info" header="Configuration">
-          <SpaceBetween size="xs">
-            <div><strong>Authority:</strong> {auth.settings.authority}</div>
-            <div><strong>Client ID:</strong> {auth.settings.client_id}</div>
-            <div><strong>Redirect URI:</strong> {auth.settings.redirect_uri}</div>
-            <div><strong>Scope:</strong> {auth.settings.scope}</div>
-          </SpaceBetween>
-        </Alert>
-      </SpaceBetween>
-    </Container>
+      <div className="debug-section">
+        <h4>Configuration</h4>
+        <div><strong>Authority:</strong> {auth.settings.authority}</div>
+        <div><strong>Client ID:</strong> {auth.settings.client_id}</div>
+        <div><strong>Redirect URI:</strong> {auth.settings.redirect_uri}</div>
+        <div><strong>Scope:</strong> {auth.settings.scope}</div>
+      </div>
+    </div>
   );
 };
 

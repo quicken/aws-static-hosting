@@ -6,7 +6,7 @@ import {
   Routes,
 } from 'react-router-dom';
 import { AuthProvider } from 'react-oidc-context';
-import '@cloudscape-design/global-styles/index.css';
+import './styles.css';
 import AppLayoutWrapper from './component/AppLayout';
 import AuthTest from './component/AuthTest';
 import AuthCallback from './component/AuthCallback';

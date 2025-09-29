@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Container, Spinner } from '@cloudscape-design/components';
 
 /**
  * Logout handler component
@@ -31,12 +30,12 @@ const LogoutHandler: React.FC = () => {
   }, [auth]);
 
   return (
-    <Container>
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <Spinner size="large" />
-        <p>Signing out...</p>
+    <div className="container">
+      <div className="loading">
+        <div className="spinner"></div>
+        Signing out...
       </div>
-    </Container>
+    </div>
   );
 };
 

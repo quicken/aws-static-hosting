@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
-import { Container, Alert, Spinner, SpaceBetween } from '@cloudscape-design/components';
 
 /**
  * OAuth callback handler component for processing authentication returns
@@ -38,32 +37,31 @@ const AuthCallback: React.FC = () => {
 
   if (auth.error) {
     return (
-      <Container>
-        <Alert type="error" header="Authentication Failed">
-          {auth.error.message}
-        </Alert>
-      </Container>
+      <div className="container">
+        <div className="alert error">
+          <strong>Authentication Failed:</strong> {auth.error.message}
+        </div>
+      </div>
     );
   }
 
   if (auth.isAuthenticated) {
     return (
-      <Container>
-        <Alert type="success" header="Authentication Successful">
-          Redirecting to application...
-        </Alert>
-      </Container>
+      <div className="container">
+        <div className="alert success">
+          <strong>Authentication Successful:</strong> Redirecting to application...
+        </div>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <SpaceBetween size="m">
-        <Alert type="info" header="Processing Authentication">
-          <Spinner /> Please wait while we complete your sign-in...
-        </Alert>
-      </SpaceBetween>
-    </Container>
+    <div className="container">
+      <div className="alert info">
+        <div className="spinner"></div>
+        Please wait while we complete your sign-in...
+      </div>
+    </div>
   );
 };
 

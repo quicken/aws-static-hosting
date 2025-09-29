@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useSearchParams } from 'react-router-dom';
-import { Container, Alert, Spinner } from '@cloudscape-design/components';
 
 /**
  * Headless authentication handler
@@ -10,6 +9,7 @@ import { Container, Alert, Spinner } from '@cloudscape-design/components';
 const AuthHandler: React.FC = () => {
   const auth = useAuth();
   const [searchParams] = useSearchParams();
+  const isDebugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
 
   useEffect(() => {
     const handleAuth = async () => {
@@ -40,21 +40,35 @@ const AuthHandler: React.FC = () => {
 
   if (auth.error) {
     return (
-      <Container>
-        <Alert type="error">
+      <div className="container">
+        <div className="alert error">
           Authentication failed. Please try again.
-        </Alert>
-      </Container>
+        </div>
+        {isDebugMode && (
+          <div className="debug-section">
+            <h4>Error Details</h4>
+            <div className="code-block">{auth.error.message}</div>
+          </div>
+        )}
+      </div>
     );
   }
 
+  // Minimal loading state
   return (
-    <Container>
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <Spinner size="large" />
-        <p>Processing authentication...</p>
+    <div className="container">
+      <div className="loading">
+        <div className="spinner"></div>
+        {isDebugMode ? 'Processing authentication...' : 'Authenticating...'}
       </div>
-    </Container>
+      {isDebugMode && (
+        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <a href="/debug" style={{ color: '#0073bb', textDecoration: 'none' }}>
+            → Debug Interface
+          </a>
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Container, Header, Button, SpaceBetween, Alert } from '@cloudscape-design/components';
 
 /**
  * AuthService component for handling authentication requests from other apps
@@ -50,57 +49,58 @@ const AuthService: React.FC = () => {
 
   if (auth.isLoading) {
     return (
-      <Container>
-        <Alert type="info">Loading authentication...</Alert>
-      </Container>
+      <div className="container">
+        <div className="alert info">Loading authentication...</div>
+      </div>
     );
   }
 
   if (auth.error) {
     return (
-      <Container>
-        <Alert type="error">Authentication error: {auth.error.message}</Alert>
-      </Container>
+      <div className="container">
+        <div className="alert error">Authentication error: {auth.error.message}</div>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <SpaceBetween direction="vertical" size="l">
-        <Header variant="h1">Authentication Service</Header>
-        
-        {auth.isAuthenticated ? (
-          <SpaceBetween direction="vertical" size="m">
-            <Alert type="success">
-              Authenticated as {auth.user?.profile?.email}
-            </Alert>
-            <SpaceBetween direction="horizontal" size="s">
-              <Button onClick={() => auth.removeUser()}>
-                Sign Out
-              </Button>
-              <Button 
-                variant="primary"
-                onClick={() => window.close()}
-              >
-                Close Window
-              </Button>
-            </SpaceBetween>
-          </SpaceBetween>
-        ) : (
-          <SpaceBetween direction="vertical" size="m">
-            <Alert type="info">
-              Please sign in to continue
-            </Alert>
-            <Button 
-              variant="primary"
-              onClick={() => auth.signinRedirect()}
+    <div className="container">
+      <h1 className="header">Authentication Service</h1>
+      
+      {auth.isAuthenticated ? (
+        <div>
+          <div className="alert success">
+            Authenticated as {auth.user?.profile?.email}
+          </div>
+          <div className="space-between">
+            <button 
+              className="button secondary"
+              onClick={() => auth.removeUser()}
             >
-              Sign In
-            </Button>
-          </SpaceBetween>
-        )}
-      </SpaceBetween>
-    </Container>
+              Sign Out
+            </button>
+            <button 
+              className="button"
+              onClick={() => window.close()}
+            >
+              Close Window
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="alert info">
+            Please sign in to continue
+          </div>
+          <button 
+            className="button"
+            onClick={() => auth.signinRedirect()}
+          >
+            Sign In
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 
