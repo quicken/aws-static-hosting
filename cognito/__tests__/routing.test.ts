@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { isSpaRoute, isPublicPath } from '../src/lib/routing';
 
 describe('Routing utilities', () => {
+  beforeEach(() => {
+    delete process.env.SPA_BASE_PATH;
+  });
+
   describe('isSpaRoute', () => {
     it('should return true for root path', () => {
       expect(isSpaRoute('/')).toBe(true);
@@ -37,28 +41,57 @@ describe('Routing utilities', () => {
       expect(isPublicPath('/auth/logout')).toBe(true);
     });
 
-    it('should return false for protected paths', () => {
-      expect(isPublicPath('/dashboard')).toBe(false);
-      expect(isPublicPath('/users/123')).toBe(false);
+    it('should return true for paths when no SPA base path is configured', () => {
+      expect(isPublicPath('/dashboard')).toBe(true);
+      expect(isPublicPath('/users/123')).toBe(true);
+      expect(isPublicPath('/assets/main.js')).toBe(true);
+      expect(isPublicPath('/favicon.ico')).toBe(true);
+    });
+
+    it('should return false for protected paths under SPA base path', () => {
+      process.env.SPA_BASE_PATH = 'apps';
+      expect(isPublicPath('/apps/dashboard')).toBe(false);
+      expect(isPublicPath('/apps/users/123')).toBe(false);
+    });
+
+    it('should return true for paths outside SPA base path', () => {
+      process.env.SPA_BASE_PATH = 'apps';
+      expect(isPublicPath('/dashboard')).toBe(true);
+      expect(isPublicPath('/users/123')).toBe(true);
+      expect(isPublicPath('/assets/main.js')).toBe(true);
     });
   });
 
-  describe('README routing examples', () => {
+  describe('SPA base path routing examples', () => {
     const examples = [
-      { path: '/', isSpa: true, isPublic: true, description: 'Root - SPA Public Landing' },
-      { path: '/index.html', isSpa: false, isPublic: true, description: 'Index HTML - Public Landing' },
-      { path: '/dashboard', isSpa: true, isPublic: false, description: 'Dashboard - SPA Protected' },
-      { path: '/public/login', isSpa: true, isPublic: true, description: 'Login - SPA Public' },
-      { path: '/public/oauth/callback', isSpa: true, isPublic: true, description: 'OAuth - SPA Public' },
-      { path: '/auth/', isSpa: true, isPublic: true, description: 'Auth Service - SPA Public' },
-      { path: '/auth/callback', isSpa: true, isPublic: true, description: 'Auth Callback - SPA Public' },
-      { path: '/auth/logout', isSpa: true, isPublic: true, description: 'Auth Logout - SPA Public' },
-      { path: '/assets/main.js', isSpa: false, isPublic: false, description: 'JS Asset' },
-      { path: '/favicon.ico', isSpa: false, isPublic: false, description: 'Icon Asset' },
+      { path: '/', isSpa: true, isPublic: true, description: 'Root - Always Public' },
+      { path: '/index.html', isSpa: false, isPublic: true, description: 'Index HTML - Always Public' },
+      { path: '/auth/', isSpa: true, isPublic: true, description: 'Auth Service - Always Public' },
+      { path: '/auth/callback', isSpa: true, isPublic: true, description: 'Auth Callback - Always Public' },
+      { path: '/public/login', isSpa: true, isPublic: true, description: 'Public - Always Public' },
+      { path: '/dashboard', isSpa: true, isPublic: true, description: 'Dashboard - Public (no base path)' },
+      { path: '/assets/main.js', isSpa: false, isPublic: true, description: 'JS Asset - Public (no base path)' },
+      { path: '/favicon.ico', isSpa: false, isPublic: true, description: 'Icon Asset - Public (no base path)' },
     ];
 
     examples.forEach(({ path, isSpa, isPublic, description }) => {
       it(`should correctly classify ${description}: ${path}`, () => {
+        expect(isSpaRoute(path)).toBe(isSpa);
+        expect(isPublicPath(path)).toBe(isPublic);
+      });
+    });
+  });
+
+  describe('SPA base path routing examples with apps base path', () => {
+    const examples = [
+      { path: '/apps/dashboard', isSpa: true, isPublic: false, description: 'Protected SPA under base path' },
+      { path: '/apps/admin/users', isSpa: true, isPublic: false, description: 'Protected SPA deep route' },
+      { path: '/dashboard', isSpa: true, isPublic: true, description: 'Public route outside base path' },
+    ];
+
+    examples.forEach(({ path, isSpa, isPublic, description }) => {
+      it(`should correctly classify ${description}: ${path}`, () => {
+        process.env.SPA_BASE_PATH = 'apps';
         expect(isSpaRoute(path)).toBe(isSpa);
         expect(isPublicPath(path)).toBe(isPublic);
       });

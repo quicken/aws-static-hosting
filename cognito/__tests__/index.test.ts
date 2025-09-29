@@ -11,6 +11,7 @@ describe('Lambda@Edge Handler', () => {
     process.env.AWS_REGION = 'us-east-1';
     process.env.COGNITO_USER_POOL_ID = 'us-east-1_TestPool';
     process.env.COGNITO_CLIENT_ID = 'test-client-id';
+    delete process.env.SPA_BASE_PATH; // Reset for each test
     vi.clearAllMocks();
   });
 
@@ -45,11 +46,12 @@ describe('Lambda@Edge Handler', () => {
   });
 
   it('should redirect unauthenticated requests to login', async () => {
+    process.env.SPA_BASE_PATH = 'apps';
     const { isAuthenticated } = await import('../src/lib/auth');
     vi.mocked(isAuthenticated).mockResolvedValue(false);
     
     const { handler } = await import('../src/index');
-    const event = createEvent('/dashboard');
+    const event = createEvent('/apps/dashboard');
     const result = await handler(event);
 
     expect(result).toEqual({
@@ -58,21 +60,53 @@ describe('Lambda@Edge Handler', () => {
       headers: {
         location: [{
           key: 'Location',
-          value: '/auth/?return_url=%2Fdashboard'
+          value: '/auth/?return_url=%2Fapps%2Fdashboard'
         }]
       }
     });
   });
 
-  it('should continue to origin for authenticated requests', async () => {
+  it('should rewrite SPA routes without base path (public)', async () => {
+    delete process.env.SPA_BASE_PATH;
+    const { handler } = await import('../src/index');
+    const event = createEvent('/dashboard');
+    const result = await handler(event);
+
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/dashboard'); // No rewrite for public
+  });
+
+  it('should rewrite root path to /index.html regardless of base path', async () => {
+    process.env.SPA_BASE_PATH = 'apps';
+    const { handler } = await import('../src/index');
+    const event = createEvent('/');
+    const result = await handler(event);
+
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/index.html');
+  });
+
+  it('should rewrite protected SPA routes with base path', async () => {
+    process.env.SPA_BASE_PATH = 'apps';
     const { isAuthenticated } = await import('../src/lib/auth');
     vi.mocked(isAuthenticated).mockResolvedValue(true);
     
     const { handler } = await import('../src/index');
-    const event = createEvent('/', 'cognito-token=valid-token');
+    const event = createEvent('/apps/dashboard');
     const result = await handler(event);
 
     expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/apps/dashboard/index.html');
+  });
+
+  it('should pass through public routes without rewriting', async () => {
+    process.env.SPA_BASE_PATH = 'apps';
+    const { handler } = await import('../src/index');
+    const event = createEvent('/public/login');
+    const result = await handler(event);
+
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/public/login'); // No rewrite
   });
 
   it('should continue to origin for public requests without authentication', async () => {
@@ -81,6 +115,7 @@ describe('Lambda@Edge Handler', () => {
     const result = await handler(event);
 
     expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/auth/index.html');
   });
 
   it('should pass through direct file requests without rewriting', async () => {
@@ -99,21 +134,22 @@ describe('Lambda@Edge Handler', () => {
     expect(publicIndexEvent.Records[0].cf.request.uri).toBe('/public/index.html'); // No rewrite
   });
 
-  it('should return 404 for asset requests', async () => {
+  it('should pass through public assets', async () => {
+    const { handler } = await import('../src/index');
+    const event = createEvent('/public/style.css');
+    const result = await handler(event);
+
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/public/style.css'); // No rewrite
+  });
+
+  it('should pass through assets outside SPA base path', async () => {
+    process.env.SPA_BASE_PATH = 'apps';
     const { handler } = await import('../src/index');
     const event = createEvent('/assets/main.js');
     const result = await handler(event);
 
-    expect(result).toEqual({
-      status: '404',
-      statusDescription: 'Not Found',
-      headers: {
-        'content-type': [{
-          key: 'Content-Type',
-          value: 'text/plain'
-        }]
-      },
-      body: 'Not Found'
-    });
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/assets/main.js'); // No rewrite, public
   });
 });

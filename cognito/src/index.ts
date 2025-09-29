@@ -45,52 +45,76 @@ export const handler = async (event: CloudFrontRequestEvent | CloudFrontResponse
       }
 
       // Only rewrite URI for SPA routes (not direct file requests)
-      if (requestPath !== "/index.html" && requestPath !== "/public/index.html" && requestPath !== "/auth/index.html") {
-        if (requestPath.startsWith('/auth')) {
-          request.uri = "/auth/index.html";
-        } else if (isPublic) {
-          request.uri = "/public/index.html";
-        } else {
+      if (requestPath !== "/index.html" && requestPath !== "/auth/index.html") {
+        if (requestPath === '/') {
+          // Root always goes to /index.html (public home page)
           request.uri = "/index.html";
+        } else if (requestPath.startsWith('/auth')) {
+          // Auth SPA routes
+          request.uri = "/auth/index.html";
+        } else {
+          // Check if this is a protected SPA route
+          const spaBasePath = process.env.SPA_BASE_PATH || '';
+          
+          if (spaBasePath && requestPath.startsWith(`/${spaBasePath}`)) {
+            // Protected SPA routing: use base path + app folder
+            const pathSegments = requestPath.split('/').filter(Boolean);
+            if (pathSegments.length > 1) {
+              const appFolder = pathSegments[1]; // Skip base path, get app name
+              request.uri = `/${spaBasePath}/${appFolder}/index.html`;
+            } else {
+              // Just base path, go to main SPA
+              request.uri = `/${spaBasePath}/index.html`;
+            }
+          } else {
+            // Public routes - pass through (no rewrite needed for non-SPA)
+            // This handles /public/*, /assets/*, etc.
+          }
         }
-        console.log("SPA route rewritten to:", request.uri);
+        
+        if (request.uri !== requestPath) {
+          console.log("SPA route rewritten to:", request.uri);
+        }
       } else {
         console.log("Direct file request, passing through:", requestPath);
       }
 
       return request;
     } else {
+      // Handle asset requests - allow public assets, block others
+      if (isPublic) {
+        console.log("Public asset request, passing through:", requestPath);
+        return request;
+      }
+      
       // Handle HTML files with authentication check
       if (requestPath.endsWith('.html')) {
-        // Check authentication for protected HTML files
-        if (!isPublic) {
-          console.log("Checking authentication for protected HTML file");
-          const authenticated = await isAuthenticated(request);
-          console.log("Authentication result:", authenticated);
+        console.log("Checking authentication for protected HTML file");
+        const authenticated = await isAuthenticated(request);
+        console.log("Authentication result:", authenticated);
 
-          if (!authenticated) {
-            console.log("Redirecting unauthenticated user to auth service with return URL");
-            return {
-              status: "302",
-              statusDescription: "Found",
-              headers: {
-                location: [
-                  {
-                    key: "Location",
-                    value: `/auth/?return_url=${encodeURIComponent(request.uri)}`,
-                  },
-                ],
-              },
-            };
-          }
+        if (!authenticated) {
+          console.log("Redirecting unauthenticated user to auth service with return URL");
+          return {
+            status: "302",
+            statusDescription: "Found",
+            headers: {
+              location: [
+                {
+                  key: "Location",
+                  value: `/auth/?return_url=${encodeURIComponent(request.uri)}`,
+                },
+              ],
+            },
+          };
         }
         
         console.log("HTML file request, passing through:", requestPath);
         return request;
       }
       
-      // Asset requests return 404 - React apps should bundle assets or use CDN
-      console.log("Asset request, returning 404");
+      // Protected asset requests return 404
+      console.log("Protected asset request, returning 404");
       return {
         status: "404",
         statusDescription: "Not Found",

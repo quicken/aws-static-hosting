@@ -18,6 +18,7 @@ const define = {};
 if (env.COGNITO_USER_POOL_ID) define['process.env.COGNITO_USER_POOL_ID'] = `"${env.COGNITO_USER_POOL_ID}"`;
 if (env.COGNITO_CLIENT_ID) define['process.env.COGNITO_CLIENT_ID'] = `"${env.COGNITO_CLIENT_ID}"`;
 if (env.AWS_REGION) define['process.env.AWS_REGION'] = `"${env.AWS_REGION}"`;
+if (env.SPA_BASE_PATH) define['process.env.SPA_BASE_PATH'] = `"${env.SPA_BASE_PATH}"`;
 
 console.log('Building with environment variables:', Object.keys(define));
 

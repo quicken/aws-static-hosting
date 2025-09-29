@@ -20,28 +20,25 @@ This Lambda@Edge function acts as a **pure authorization gateway** for Cognito-p
 
 ### Public vs Protected Route Authorization
 
-**Public Routes** (`/public/*`, `/auth/*`):
-- **No Authentication Required**: Lambda returns 200 (allow)
-- **Auth Service**: Contains the headless OAuth/PKCE authentication flows
-- **Login Application**: Contains the OAuth/PKCE login flow (legacy)
-- **CloudFront Serves**: `auth/index.html` or `public/index.html` from S3
-- **Examples**: `/auth/`, `/auth/callback`, `/auth/logout`, `/public/login`, `/public/oauth/callback`
+**Public Routes** (No Authentication Required):
+- **Root Path** (`/`): Always rewrites to `/index.html` - public home page
+- **Auth Service** (`/auth/*`): Always rewrites to `/auth/index.html` - authentication SPA
+- **Everything Else**: All other routes are public by default (assets, content, etc.)
 
-**Protected Routes** (everything else):
-- **Authentication Required**: Lambda validates JWT token in `cognito-token` cookie
-- **Valid Token**: Lambda returns 200 (allow), CloudFront serves `index.html`
-- **Invalid/Missing Token**: Lambda returns 302 redirect to `/auth/?return_url=<original-path>`
-- **Examples**: `/`, `/dashboard`, `/users/123`
+**Protected Routes** (Authentication Required):
+- **SPA Base Path Routes** (`/{SPA_BASE_PATH}/*`): Only routes under the configured base path require authentication
+- **Example with SPA_BASE_PATH="apps"**: `/apps/dashboard`, `/apps/admin/users` require authentication
+- **Rewrite Logic**: `/apps/dashboard` → `/apps/dashboard/index.html` (after auth check)
 
 ### Authentication Flow with Return URL Preservation
 
-1. **Unauthenticated User** visits `/dashboard`
+1. **Unauthenticated User** visits `/apps/dashboard` (protected route)
 2. **Lambda@Edge**: No valid JWT token found
-3. **Redirect with Return URL**: Lambda returns 302 redirect to `/auth/?return_url=%2Fdashboard`
+3. **Redirect with Return URL**: Lambda returns 302 redirect to `/auth/?return_url=%2Fapps%2Fdashboard`
 4. **Auth Service**: Processes OAuth flow and preserves return URL in OAuth state parameter
 5. **Login Process**: User authenticates via Cognito OAuth + PKCE
 6. **Token Set**: Auth service sets `cognito-token` cookie with JWT
-7. **Return to Origin**: User is redirected back to original `/dashboard` URL
+7. **Return to Origin**: User is redirected back to original `/apps/dashboard` URL
 8. **Access Granted**: Lambda authorizes, CloudFront serves protected content
 
 #### Why Return URL Preservation Matters
@@ -125,18 +122,20 @@ CloudFront serves file from S3
 
 | Path | Type | Access | URI Rewrite | Result |
 |------|------|--------|-------------|--------|
-| `/` | SPA | Public | `/index.html` | Main app |
-| `/dashboard` | SPA | Protected | `/index.html` | Main app (auth required) |
-| `/index.html` | SPA | Public | No rewrite | Direct file serve |
-| `/public/login` | SPA | Public | `/public/index.html` | Login app |
-| `/public/index.html` | SPA | Public | No rewrite | Direct file serve |
-| `/assets/main.js` | Asset | N/A | N/A | 404 Not Found |
+| `/` | SPA | Public | `/index.html` | Public home page |
+| `/auth/callback` | SPA | Public | `/auth/index.html` | Auth service |
+| `/apps/dashboard` | SPA | Protected | `/apps/dashboard/index.html` | Dashboard SPA (auth required) |
+| `/apps/admin/users` | SPA | Protected | `/apps/admin/index.html` | Admin SPA (auth required) |
+| `/public/style.css` | Asset | Public | No rewrite | Public asset |
+| `/favicon.ico` | Asset | Public | No rewrite | Public asset |
+| `/dashboard` | SPA | Public | No rewrite | Public route (no base path) |
 
 This approach ensures:
-- **No false 404s** in CloudFront logs
-- **Direct file access** works normally
-- **SPA routing** functions correctly
-- **Authentication** is enforced where needed
+- **Public home page** accessible to all users
+- **Auth service** handles login flows
+- **Protected SPAs** only under configured base path
+- **Public assets** served efficiently
+- **Flexible organization** with configurable SPA base path
 
 ## Problem Statement
 
@@ -184,36 +183,49 @@ src/
 - `COGNITO_USER_POOL_ID`: AWS Cognito User Pool ID for JWT validation (required)
 - `COGNITO_CLIENT_ID`: AWS Cognito App Client ID (required)
 - `AWS_REGION`: AWS region (defaults to ap-southeast-2)
+- `SPA_BASE_PATH`: Base path for protected SPA applications (optional, e.g., "apps")
 
 ## How It Works
 
 ### Public Routes (No Authentication Required)
-- **Root path** (`/`): Rewrites to `/index.html` - serves main application without authentication
-- **Direct file** (`/index.html`): Passes through to S3 - serves main application directly
-- **Public folder** (`/public/*`): SPA routes rewrite to `/public/index.html`, direct files pass through
-- Lambda returns 200 (authorized) - CloudFront serves the appropriate HTML file
+- **Root path** (`/`): Always rewrites to `/index.html` - serves public home page
+- **Auth service** (`/auth/*`): Always rewrites to `/auth/index.html` - handles OAuth flows
+- **All other paths**: Public by default - assets, content, etc. pass through to S3
+- Lambda returns 200 (authorized) - CloudFront serves the appropriate file
 - No JWT validation required
 
 ### Protected Routes (Authentication Required)
-- **Protected SPA routes** (`/dashboard`, `/users/123`):
+- **SPA Base Path routes** (`/{SPA_BASE_PATH}/*`): Only routes under configured base path require authentication
+- **Example with SPA_BASE_PATH="apps"**: `/apps/dashboard`, `/apps/admin/users`
 - Lambda validates JWT token from `cognito-token` cookie
-- On valid token: Rewrites to `/index.html` - CloudFront serves main app
-- On invalid/missing token: Returns 302 redirect to `/public/login`
+- On valid token: Rewrites to `/{SPA_BASE_PATH}/{app}/index.html` - CloudFront serves SPA
+- On invalid/missing token: Returns 302 redirect to `/auth/?return_url=<path>`
 
-### Asset Handling
-- **Asset Requests** (`/assets/main.js`, `/favicon.ico`):
-- Returns 404 Not Found
-- Encourages proper asset bundling or CDN usage
+### Multiple SPA Support
+- **Dynamic Routing**: First path segment under base path determines SPA
+- **Examples with SPA_BASE_PATH="apps"**:
+  - `/apps/dashboard/users` → `/apps/dashboard/index.html`
+  - `/apps/admin/settings` → `/apps/admin/index.html`
+  - `/apps/blog/post/123` → `/apps/blog/index.html`
+- **No Configuration Required**: Just create folders in S3 under base path
 
 ## S3 Structure
 
 Your S3 bucket should contain:
 ```
 bucket-name/
-├── index.html          # Main protected application
+├── index.html          # Public home page
 ├── auth/
-│   └── index.html      # Headless auth service (handles OAuth flows)
-└── public/
+│   └── index.html      # Auth service (handles OAuth flows)
+├── apps/               # Protected SPAs (SPA_BASE_PATH="apps")
+│   ├── index.html      # Main protected app
+│   ├── dashboard/
+│   │   └── index.html  # Dashboard SPA
+│   └── admin/
+│       └── index.html  # Admin SPA
+└── public/             # Public assets and content
+    ├── style.css       # Public stylesheets
+    ├── images/         # Public images
     └── index.html      # Public content (optional)
 ```
 

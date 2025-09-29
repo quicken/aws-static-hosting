@@ -13,8 +13,18 @@ export function isSpaRoute(pathname: string): boolean {
  * @returns True if pathname is public
  */
 export function isPublicPath(pathname: string): boolean {
-  return pathname === '/' || 
-         pathname === '/index.html' || 
-         pathname.startsWith('/public') ||
-         pathname.startsWith('/auth');
+  const spaBasePath = process.env.SPA_BASE_PATH || '';
+  
+  // Root and auth are always public
+  if (pathname === '/' || pathname === '/index.html' || pathname.startsWith('/auth')) {
+    return true;
+  }
+  
+  // If SPA base path is configured, only those routes are protected
+  if (spaBasePath && pathname.startsWith(`/${spaBasePath}`)) {
+    return false; // Protected
+  }
+  
+  // Everything else is public
+  return true;
 }
