@@ -30,7 +30,15 @@ function getKey(header: jwt.JwtHeader, callback: (err: any, signingKey?: string)
         callback(err);
         return;
       }
-      const signingKey = key?.getPublicKey();
+      
+      // Cognito always returns RSA keys with getPublicKey method
+      const signingKey = key?.getPublicKey?.() || key?.publicKey;
+      if (!signingKey) {
+        console.error('Unable to extract public key from Cognito JWKS');
+        callback(new Error('Unable to extract public key'));
+        return;
+      }
+      
       callback(null, signingKey);
     });
   } catch (error) {
@@ -81,8 +89,8 @@ export async function validateJwtToken(token: string): Promise<boolean> {
       // Verify JWT signature and decode payload
       jwt.verify(token, getKey, {
         issuer: `https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}`,
-        audience: COGNITO_CLIENT_ID,
         algorithms: ['RS256']
+        // Remove audience validation - we'll check client_id manually
       }, (err: any, decoded: any) => {
         if (err) {
           console.error('JWT verification failed:', err.message);
@@ -90,11 +98,18 @@ export async function validateJwtToken(token: string): Promise<boolean> {
           return;
         }
 
-        console.log('JWT decoded successfully:', { token_use: decoded.token_use, exp: decoded.exp });
+        console.log('JWT decoded successfully:', { token_use: decoded.token_use, exp: decoded.exp, client_id: decoded.client_id });
 
         // Additional Cognito-specific validations
         if (decoded.token_use !== 'access' && decoded.token_use !== 'id') {
           console.error('Invalid token_use:', decoded.token_use);
+          resolve(false);
+          return;
+        }
+
+        // Check client_id instead of audience for Cognito ID tokens
+        if (decoded.client_id !== COGNITO_CLIENT_ID) {
+          console.error('Invalid client_id:', decoded.client_id, 'expected:', COGNITO_CLIENT_ID);
           resolve(false);
           return;
         }

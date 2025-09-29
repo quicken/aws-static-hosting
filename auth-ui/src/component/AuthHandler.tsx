@@ -15,7 +15,7 @@ const AuthHandler: React.FC = () => {
     const handleAuth = async () => {
       if (auth.isAuthenticated && auth.user) {
         // Set secure JWT cookie for Lambda@Edge
-        setSecureJWTCookie(auth.user.access_token);
+        setSecureJWTCookie(auth.user.id_token);
         
         // Get return URL from OAuth state or query parameter
         const returnUrl = getReturnUrl(auth.user, searchParams);

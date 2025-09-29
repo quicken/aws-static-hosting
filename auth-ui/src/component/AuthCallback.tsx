@@ -21,7 +21,7 @@ const AuthCallback: React.FC = () => {
         setTimeout(() => {
           if (auth.isAuthenticated) {
             console.log('Authentication successful, redirecting...');
-            navigate('/entry'); // Redirect to auth test page to show results
+            navigate('/'); // Redirect to AuthHandler to process return URL
           } else if (auth.error) {
             console.error('Authentication error:', auth.error);
           }
