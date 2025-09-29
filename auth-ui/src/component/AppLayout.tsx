@@ -22,17 +22,14 @@ const AppLayoutWrapper: React.FC<AppLayoutWrapperProps> = ({ children }) => {
           <h3>AWS Cognito Auth</h3>
           <ul>
             <li>
-              <Link 
-                to="/" 
-                className={location.pathname === '/' ? 'active' : ''}
-              >
+              <Link to="/">
                 Auth Handler
               </Link>
             </li>
             <li>
               <Link 
                 to="/debug" 
-                className={location.pathname === '/debug' ? 'active' : ''}
+                className="active"
               >
                 Debug
               </Link>
