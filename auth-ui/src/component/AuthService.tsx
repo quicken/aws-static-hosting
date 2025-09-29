@@ -22,7 +22,7 @@ const AuthService: React.FC = () => {
               accessToken: auth.user?.access_token,
               user: auth.user?.profile
             }
-          }, event.origin);
+          }, { targetOrigin: event.origin });
         } else {
           // Redirect to login
           auth.signinRedirect();
