@@ -45,7 +45,7 @@ describe('Lambda@Edge Handler', () => {
     }]
   });
 
-  it('should redirect unauthenticated requests to login', async () => {
+  it('should redirect unauthenticated SPA requests to auth with return URL', async () => {
     process.env.SPA_BASE_PATH = 'apps';
     const { isAuthenticated } = await import('../src/lib/auth');
     vi.mocked(isAuthenticated).mockResolvedValue(false);
@@ -66,27 +66,48 @@ describe('Lambda@Edge Handler', () => {
     });
   });
 
-  it('should rewrite SPA routes without base path (public)', async () => {
-    delete process.env.SPA_BASE_PATH;
+  it('should return 404 for unauthenticated non-HTML protected requests', async () => {
+    process.env.SPA_BASE_PATH = 'apps';
+    const { isAuthenticated } = await import('../src/lib/auth');
+    vi.mocked(isAuthenticated).mockResolvedValue(false);
+    
     const { handler } = await import('../src/index');
-    const event = createEvent('/dashboard');
+    const event = createEvent('/apps/api/data.json');
     const result = await handler(event);
 
-    expect(result).toEqual(event.Records[0].cf.request);
-    expect(event.Records[0].cf.request.uri).toBe('/dashboard'); // No rewrite for public
+    expect(result).toEqual({
+      status: '404',
+      statusDescription: 'Not Found',
+      headers: {
+        'content-type': [{
+          key: 'Content-Type',
+          value: 'text/plain'
+        }]
+      },
+      body: 'Not Found'
+    });
   });
 
-  it('should rewrite root path to /index.html regardless of base path', async () => {
-    process.env.SPA_BASE_PATH = 'apps';
+  it('should return request for root path after rewrite to /public/index.html', async () => {
     const { handler } = await import('../src/index');
     const event = createEvent('/');
     const result = await handler(event);
 
+    // Root gets rewritten to /public/index.html, which is now public per isPublicPath
     expect(result).toEqual(event.Records[0].cf.request);
-    expect(event.Records[0].cf.request.uri).toBe('/index.html');
+    expect(event.Records[0].cf.request.uri).toBe('/public/index.html');
   });
 
-  it('should rewrite protected SPA routes with base path', async () => {
+  it('should return request for auth routes', async () => {
+    const { handler } = await import('../src/index');
+    const event = createEvent('/auth/callback');
+    const result = await handler(event);
+
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/auth/index.html');
+  });
+
+  it('should rewrite protected SPA routes when authenticated', async () => {
     process.env.SPA_BASE_PATH = 'apps';
     const { isAuthenticated } = await import('../src/lib/auth');
     vi.mocked(isAuthenticated).mockResolvedValue(true);
@@ -99,57 +120,65 @@ describe('Lambda@Edge Handler', () => {
     expect(event.Records[0].cf.request.uri).toBe('/apps/dashboard/index.html');
   });
 
-  it('should pass through public routes without rewriting', async () => {
+  it('should rewrite to base SPA when only base path is accessed', async () => {
     process.env.SPA_BASE_PATH = 'apps';
-    const { handler } = await import('../src/index');
-    const event = createEvent('/public/login');
-    const result = await handler(event);
-
-    expect(result).toEqual(event.Records[0].cf.request);
-    expect(event.Records[0].cf.request.uri).toBe('/public/login'); // No rewrite
-  });
-
-  it('should continue to origin for public requests without authentication', async () => {
-    const { handler } = await import('../src/index');
-    const event = createEvent('/auth/');
-    const result = await handler(event);
-
-    expect(result).toEqual(event.Records[0].cf.request);
-    expect(event.Records[0].cf.request.uri).toBe('/auth/index.html');
-  });
-
-  it('should pass through direct file requests without rewriting', async () => {
-    const { handler } = await import('../src/index');
+    const { isAuthenticated } = await import('../src/lib/auth');
+    vi.mocked(isAuthenticated).mockResolvedValue(true);
     
-    // Test /index.html direct request
-    const indexEvent = createEvent('/index.html');
-    const indexResult = await handler(indexEvent);
-    expect(indexResult).toEqual(indexEvent.Records[0].cf.request);
-    expect(indexEvent.Records[0].cf.request.uri).toBe('/index.html'); // No rewrite
-    
-    // Test /public/index.html direct request
-    const publicIndexEvent = createEvent('/public/index.html');
-    const publicIndexResult = await handler(publicIndexEvent);
-    expect(publicIndexResult).toEqual(publicIndexEvent.Records[0].cf.request);
-    expect(publicIndexEvent.Records[0].cf.request.uri).toBe('/public/index.html'); // No rewrite
-  });
-
-  it('should pass through public assets', async () => {
     const { handler } = await import('../src/index');
-    const event = createEvent('/public/style.css');
+    const event = createEvent('/apps');
     const result = await handler(event);
 
     expect(result).toEqual(event.Records[0].cf.request);
-    expect(event.Records[0].cf.request.uri).toBe('/public/style.css'); // No rewrite
+    expect(event.Records[0].cf.request.uri).toBe('/apps/index.html');
   });
 
-  it('should pass through assets outside SPA base path', async () => {
-    process.env.SPA_BASE_PATH = 'apps';
+  it('should pass through asset files without rewriting', async () => {
     const { handler } = await import('../src/index');
     const event = createEvent('/assets/main.js');
     const result = await handler(event);
 
     expect(result).toEqual(event.Records[0].cf.request);
-    expect(event.Records[0].cf.request.uri).toBe('/assets/main.js'); // No rewrite, public
+    expect(event.Records[0].cf.request.uri).toBe('/assets/main.js');
+  });
+
+  it('should return request for direct HTML file requests', async () => {
+    const { handler } = await import('../src/index');
+    const event = createEvent('/index.html');
+    const result = await handler(event);
+
+    expect(result).toEqual(event.Records[0].cf.request);
+    expect(event.Records[0].cf.request.uri).toBe('/index.html');
+  });
+
+  it('should return 500 on internal errors', async () => {
+    const { isAuthenticated } = await import('../src/lib/auth');
+    vi.mocked(isAuthenticated).mockRejectedValue(new Error('Test error'));
+    
+    const { handler } = await import('../src/index');
+    const event = createEvent('/apps/dashboard');
+    const result = await handler(event);
+
+    expect(result).toEqual({
+      status: '500',
+      statusDescription: 'Internal Server Error',
+      headers: {
+        'content-type': [{
+          key: 'Content-Type',
+          value: 'text/plain'
+        }]
+      },
+      bodyEncoding: 'text',
+      body: 'Internal Server Error'
+    });
+  });
+
+  it('should handle non-viewer-request events', async () => {
+    const { handler } = await import('../src/index');
+    const event = createEvent('/test');
+    event.Records[0].cf.config.eventType = 'origin-response';
+    
+    const result = await handler(event);
+    expect(result).toEqual(event.Records[0].cf.request);
   });
 });

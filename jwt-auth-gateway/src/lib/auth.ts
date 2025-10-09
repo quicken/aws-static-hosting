@@ -19,30 +19,30 @@ const client = jwksClient({
 function getKey(header: jwt.JwtHeader, callback: (err: any, signingKey?: string) => void) {
   try {
     if (!header.kid) {
-      console.error('No kid in token header');
-      callback(new Error('No kid in token header'));
+      console.error("No kid in token header");
+      callback(new Error("No kid in token header"));
       return;
     }
-    
+
     client.getSigningKey(header.kid, (err, key) => {
       if (err) {
-        console.error('Error getting signing key:', err);
+        console.error("Error getting signing key:", err);
         callback(err);
         return;
       }
-      
+
       // Cognito always returns RSA keys with getPublicKey method
       const signingKey = key?.getPublicKey?.() || key?.publicKey;
       if (!signingKey) {
-        console.error('Unable to extract public key from Cognito JWKS');
-        callback(new Error('Unable to extract public key'));
+        console.error("Unable to extract public key from Cognito JWKS");
+        callback(new Error("Unable to extract public key"));
         return;
       }
-      
+
       callback(null, signingKey);
     });
   } catch (error) {
-    console.error('Error in getKey:', error);
+    console.error("Error in getKey:", error);
     callback(error);
   }
 }
@@ -54,24 +54,24 @@ function getKey(header: jwt.JwtHeader, callback: (err: any, signingKey?: string)
  */
 export function extractJwtToken(request: CloudFrontRequest): string | null {
   try {
-    console.log('Extracting JWT token from request headers:', JSON.stringify(request.headers, null, 2));
-    
+    console.log("Extracting JWT token from request headers:", JSON.stringify(request.headers, null, 2));
+
     const cookieHeader = request.headers.cookie;
     if (!cookieHeader || cookieHeader.length === 0) {
-      console.log('No cookie header found');
+      console.log("No cookie header found");
       return null;
     }
-    
+
     const cookies = cookieHeader[0].value;
-    console.log('Cookie string:', cookies);
-    
+    console.log("Cookie string:", cookies);
+
     const match = cookies.match(/cognito-token=([^;]+)/);
     const token = match ? match[1] : null;
-    
-    console.log('Extracted token:', token ? 'Found token' : 'No token found');
+
+    console.log("Extracted token:", token ? "Found token" : "No token found");
     return token;
   } catch (error) {
-    console.error('Error extracting JWT token:', error);
+    console.error("Error extracting JWT token:", error);
     return null;
   }
 }
@@ -84,41 +84,48 @@ export function extractJwtToken(request: CloudFrontRequest): string | null {
 export async function validateJwtToken(token: string): Promise<boolean> {
   return new Promise((resolve) => {
     try {
-      console.log('Validating JWT token');
-      
+      console.log("Validating JWT token");
+
       // Verify JWT signature and decode payload
-      jwt.verify(token, getKey, {
-        issuer: `https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}`,
-        algorithms: ['RS256']
-        // Remove audience validation - we'll check client_id manually
-      }, (err: any, decoded: any) => {
-        if (err) {
-          console.error('JWT verification failed:', err.message);
-          resolve(false);
-          return;
+      jwt.verify(
+        token,
+        getKey,
+        {
+          issuer: `https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}`,
+          algorithms: ["RS256"],
+          // Remove audience validation - we'll check client_id manually
+        },
+        (err: any, decoded: any) => {
+          if (err) {
+            console.error("JWT verification failed:", err.message);
+            resolve(false);
+            return;
+          }
+
+          console.log("JWT decoded successfully:", { token_use: decoded.token_use, exp: decoded.exp, client_id: decoded.client_id });
+
+          // Additional Cognito-specific validations
+          if (decoded.token_use !== "access" && decoded.token_use !== "id") {
+            console.error("Invalid token_use:", decoded.token_use);
+            resolve(false);
+            return;
+          }
+
+          const clientId = decoded.client_id || decoded.aud;
+
+          // Check client_id instead of audience for Cognito ID tokens
+          if (clientId !== COGNITO_CLIENT_ID) {
+            console.error("Invalid client_id:", clientId, "expected:", COGNITO_CLIENT_ID);
+            resolve(false);
+            return;
+          }
+
+          console.log("JWT validation successful");
+          resolve(true);
         }
-
-        console.log('JWT decoded successfully:', { token_use: decoded.token_use, exp: decoded.exp, client_id: decoded.client_id });
-
-        // Additional Cognito-specific validations
-        if (decoded.token_use !== 'access' && decoded.token_use !== 'id') {
-          console.error('Invalid token_use:', decoded.token_use);
-          resolve(false);
-          return;
-        }
-
-        // Check client_id instead of audience for Cognito ID tokens
-        if (decoded.client_id !== COGNITO_CLIENT_ID) {
-          console.error('Invalid client_id:', decoded.client_id, 'expected:', COGNITO_CLIENT_ID);
-          resolve(false);
-          return;
-        }
-
-        console.log('JWT validation successful');
-        resolve(true);
-      });
+      );
     } catch (error) {
-      console.error('Error in validateJwtToken:', error);
+      console.error("Error in validateJwtToken:", error);
       resolve(false);
     }
   });
@@ -131,19 +138,16 @@ export async function validateJwtToken(token: string): Promise<boolean> {
  */
 export async function isAuthenticated(request: CloudFrontRequest): Promise<boolean> {
   try {
-    console.log('Checking authentication');
-    
     const token = extractJwtToken(request);
     if (!token) {
-      console.log('No token found, not authenticated');
+      //console.log("No token found, not authenticated");
       return false;
     }
-    
+
     const isValid = await validateJwtToken(token);
-    console.log('Authentication result:', isValid);
     return isValid;
   } catch (error) {
-    console.error('Error in isAuthenticated:', error);
+    console.error("Error in isAuthenticated:", error);
     return false;
   }
 }
