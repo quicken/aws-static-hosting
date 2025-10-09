@@ -1,3 +1,25 @@
+## 🆕 Repository Update
+
+New: For environments requiring more enterprise like security, I have added a more sophisticated JWT-based authentication
+solution as an alternative to the basic authentication demonstrated in the YouTube tutorial.
+
+### Project Reorganisation
+• **Basic Authentication**: Moved to basic-auth/ subfolder (YouTube tutorial code)
+• **JWT Authentication**: New jwt-auth-gateway/ - Enterprise JWT validation with AWS Cognito
+• **OAuth2 Client**: New auth-ui/ - React application implementing OAuth2 PKCE flow
+
+### Enterprise Authentication Solution
+The jwt-auth-gateway and auth-ui projects provide an end-to-end solution for hosting protected SPA applications in
+CloudFront with:
+
+• AWS Cognito integration
+• JWT token validation
+• OAuth2 Authorization Code with PKCE flow
+• Multi-application support under single distribution
+
+See individual project READMEs for complete implementation details.
+---
+
 # AWS-static-hosting
 
 This project contains code that can be useful when hosting a static JS Application that uses client-side routing behind an AWS Cloudfront distribution.
@@ -5,6 +27,7 @@ This project contains code that can be useful when hosting a static JS Applicati
 The sample lambda demonstrated protecting a JS App hosted with CloudFront and S3 using basic authentication. As well as demonstrating re-writing URLs in cases where the Client-Side routing hides files behind directory names.
 
 The code has been used with DocuSaurus, Next.js as well as React Applications and is likely to work with any application that works similarly.
+
 
 ## Hosting your JS App in AWS
 
