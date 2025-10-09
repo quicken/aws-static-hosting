@@ -9,22 +9,22 @@ import { useSearchParams } from 'react-router-dom';
 const AuthHandler: React.FC = () => {
   const auth = useAuth();
   const [searchParams] = useSearchParams();
-  const isDebugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+  const isDebugMode = import.meta.env.VITE_DEBUG_MODE === "true";
 
   useEffect(() => {
     const handleAuth = async () => {
       if (auth.isAuthenticated && auth.user) {
         // Set secure JWT cookie for Lambda@Edge
         setSecureJWTCookie(auth.user.id_token);
-        
+
         // Get return URL from OAuth state or query parameter
         const returnUrl = getReturnUrl(auth.user, searchParams);
-        const validatedUrl = validateReturnUrl(returnUrl) || '/';
-        
+        const validatedUrl = validateReturnUrl(returnUrl) || "/";
+
         window.location.href = validatedUrl;
       } else if (!auth.isLoading && !auth.isAuthenticated) {
         // Get return URL and encode it in OAuth state
-        const returnUrl = searchParams.get('return_url');
+        const returnUrl = searchParams.get("return_url");
         if (returnUrl && validateReturnUrl(returnUrl)) {
           // Pass return URL via OAuth state parameter
           auth.signinRedirect({ state: { returnUrl } });
@@ -41,9 +41,7 @@ const AuthHandler: React.FC = () => {
   if (auth.error) {
     return (
       <div className="container">
-        <div className="alert error">
-          Authentication failed. Please try again.
-        </div>
+        <div className="alert error">Authentication failed. Please try again.</div>
         {isDebugMode && (
           <div className="debug-section">
             <h4>Error Details</h4>
@@ -59,11 +57,11 @@ const AuthHandler: React.FC = () => {
     <div className="container">
       <div className="loading">
         <div className="spinner"></div>
-        {isDebugMode ? 'Processing authentication...' : 'Authenticating...'}
+        {isDebugMode ? "Processing authentication..." : "Authenticating..."}
       </div>
       {isDebugMode && (
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <a href="/debug" style={{ color: '#0073bb', textDecoration: 'none' }}>
+        <div style={{ marginTop: "20px", textAlign: "center" }}>
+          <a href="/debug" style={{ color: "#0073bb", textDecoration: "none" }}>
             → Debug Interface
           </a>
         </div>
@@ -77,12 +75,13 @@ const AuthHandler: React.FC = () => {
  */
 const getReturnUrl = (user: any, searchParams: URLSearchParams): string | null => {
   // First try OAuth state (most secure)
-  if (user.state && typeof user.state === 'object' && user.state.returnUrl) {
+  console.log(user);
+  if (user.state && typeof user.state === "object" && user.state.returnUrl) {
     return user.state.returnUrl;
   }
-  
+
   // Fallback to query parameter (less secure but compatible)
-  return searchParams.get('return_url');
+  return searchParams.get("return_url");
 };
 
 /**
@@ -100,29 +99,29 @@ const setSecureJWTCookie = (token: string) => {
  */
 const validateReturnUrl = (returnUrl: string | null): string | null => {
   if (!returnUrl) return null;
-  
+
   try {
     // Allow relative paths that start with /
-    if (returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+    if (returnUrl.startsWith("/") && !returnUrl.startsWith("//")) {
       // Block common malicious patterns
-      if (returnUrl.includes('javascript:') || returnUrl.includes('data:')) {
+      if (returnUrl.includes("javascript:") || returnUrl.includes("data:")) {
         return null;
       }
       return returnUrl;
     }
-    
+
     // For absolute URLs, ensure same origin
     const url = new URL(returnUrl);
     const currentOrigin = window.location.origin;
-    
+
     if (url.origin === currentOrigin) {
       return returnUrl;
     }
   } catch (error) {
     // Invalid URL format
-    console.warn('Invalid return URL format:', returnUrl);
+    console.warn("Invalid return URL format:", returnUrl);
   }
-  
+
   return null;
 };
 

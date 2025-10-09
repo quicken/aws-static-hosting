@@ -4,11 +4,12 @@ import viteTsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  
+
   return {
     base: env.VITE_AUTH_BASE_PATH,
     build: {
       manifest: true,
+      emptyOutDir: true,
     },
     plugins: [react(), viteTsconfigPaths()],
     server: {
@@ -20,8 +21,8 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       globals: true,
-      environment: 'jsdom',
-      exclude: ['**/node_modules/**', '**/dist/**', '**/.{idea,git,cache,output,temp}/**']
+      environment: "jsdom",
+      exclude: ["**/node_modules/**", "**/dist/**", "**/.{idea,git,cache,output,temp}/**"],
     },
   };
 });

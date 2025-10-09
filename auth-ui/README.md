@@ -1,205 +1,192 @@
-# AWS Cognito Headless Authentication Service
+# OAuth2 Authentication UI for CloudFront Static Hosting
 
-A React 19 + TypeScript + Vite headless authentication service for securing multiple applications within a CloudFront distribution using AWS Cognito and Lambda@Edge.
+> **Enterprise-grade React authentication client implementing OAuth2 Authorization Code with PKCE flow for AWS Cognito integration**
 
-## Architecture Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![React Version](https://img.shields.io/badge/react-19.1.1-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-5.9.2-blue.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/vite-7.1.5-646CFF.svg)](https://vitejs.dev/)
 
-This service is designed to work as a centralized authentication handler in a multi-application CloudFront distribution where:
+## 🚀 Overview
 
-- **Lambda@Edge** protects private routes by checking for valid JWT cookies
-- **Multiple Vite apps** sit behind the same CloudFront distribution
-- **Headless auth service** handles OAuth flows and sets secure JWT cookies
-- **Cognito Hosted UI** provides the actual login interface
+**OAuth2 Authentication UI** is a POC of production-ready React application that provides seamless authentication services for the JWT Authentication Gateway ecosystem. Built as a headless authentication service, it handles the complete OAuth2 Authorization Code with PKCE flow while maintaining enterprise security standards.
 
-## Intended Flow
+*As always do your own due diligence before using this application.*
 
+### Key Value Propositions
+
+✅ **Generic Architecture** - Authentication handling with automatic redirects
+✅ **OAuth2 PKCE Compliance** - RFC 7636 compliant implementation for maximum security
+✅ **Enterprise Integration** - Seamless AWS Cognito and OIDC provider compatibility
+✅ **Developer Experience** - Modern React 19 with TypeScript and Vite tooling
+✅ **Production Ready** - Comprehensive error handling and security best practices
+
+## 🎯 Problem Statement
+
+Modern web applications require secure, user-friendly authentication that doesn't disrupt the user experience. Traditional authentication solutions often require:
+
+- Complex server-side session management
+- Intrusive login pages that break application flow
+- Manual token handling and refresh logic
+- Custom security implementations prone to vulnerabilities
+
+This solution provides a **mostly headless authentication service** that handles all OAuth2 complexity while maintaining seamless user experience.
+
+## 🏗️ Architecture
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant CF as CloudFront
+    participant LE as Lambda@Edge
+    participant AU as Auth UI
+    participant CG as AWS Cognito
+
+    U->>CF: Request /apps/dashboard
+    CF->>LE: Viewer Request
+    LE->>LE: Validate JWT Cookie
+    LE-->>CF: 302 Redirect to /auth/?return_url=...
+    CF->>AU: Load Auth UI
+    AU->>AU: Check Authentication Status
+    AU->>CG: Initiate OAuth2 PKCE Flow
+    CG->>U: Cognito Hosted UI
+    U->>CG: User Authentication
+    CG->>AU: Authorization Code + State
+    AU->>CG: Exchange Code for JWT (PKCE)
+    AU->>AU: Set Secure JWT Cookie
+    AU->>CF: Redirect to Original URL
+    CF->>LE: Viewer Request (with JWT)
+    LE->>LE: Validate JWT ✓
+    LE->>CF: Allow Request
+    CF->>U: Serve Protected Content
 ```
-User requests /app1/dashboard
-    ↓
-Lambda@Edge checks JWT cookie
-    ↓
-Invalid/missing JWT → Redirect to /auth/?return_url=/app1/dashboard
-    ↓
-Auth service checks authentication status
-    ↓
-Not authenticated → Redirect to Cognito Hosted UI
-    ↓
-User authenticates → Cognito redirects to /auth/callback
-    ↓
-Auth service sets secure JWT cookie → Redirect to return_url
-    ↓
-Lambda@Edge validates JWT → Allow access to /app1/dashboard
-```
 
-## CloudFront Distribution Structure
+## 🔧 Technical Specifications
 
-```
-yourdomain.com/
-├── /auth/          # This headless auth service
-├── /app1/          # Protected Vite application 1
-├── /app2/          # Protected Vite application 2
-├── /public/        # Public assets (no auth required)
-└── /               # Public home page
-```
+### OAuth2 Implementation
+- **Library**: `oidc-client-ts` v3.3.0 - Industry-standard OpenID Connect client
+- **React Integration**: `react-oidc-context` v3.3.0 - React hooks for OIDC
+- **Flow Type**: Authorization Code with PKCE (RFC 7636)
+- **Security Standards**: OpenID Connect 1.0 compliant
 
-## Operating Modes
+### Frontend Technology Stack
+- **Framework**: React 19.1.1 - Latest React with concurrent features
+- **Language**: TypeScript 5.9.2 - Type-safe development
+- **Build Tool**: Vite 7.1.5 - Lightning-fast development and builds
+- **Routing**: React Router DOM 7.8.2 - Client-side routing
 
-### Production Mode (Headless)
-**Environment:** `VITE_DEBUG_MODE=false`
+### Security Features
+- **PKCE Implementation** - Proof Key for Code Exchange prevents authorization code interception
+- **State Parameter Validation** - CSRF protection via OAuth2 state parameter
+- **Secure Cookie Management** - HTTP-only, secure, SameSite cookie attributes
+- **Automatic Token Refresh** - Seamless session management without user intervention
+- **Secure Logout** - Complete session termination with provider cleanup
 
-- **`/auth/`** - Headless authentication handler
-- **`/auth/callback`** - OIDC callback processing
-- No debug UI exposed
+## 📦 Features
 
-### Debug Mode (Development)
-**Environment:** `VITE_DEBUG_MODE=true`
+### 🔐 Authentication Modes
 
-- **`/auth/`** - Headless authentication handler  
-- **`/auth/callback`** - OIDC callback processing
-- **`/auth/debug`** - Full authentication test interface
-
-## Key Features
-
-### Headless Operation
-- Processes OAuth flows without UI (uses Cognito Hosted UI)
-- Sets secure JWT cookies using best practices
-- Redirects back to original requested URL
-- Minimal footprint for production deployments
-
-### Lambda@Edge Integration
-- Designed to work with Lambda@Edge JWT validation
-- Handles session renewal and token refresh
-- Provides seamless user experience across multiple apps
-
-### Security Best Practices
-- HTTP-only secure cookies (when implemented server-side)
-- PKCE (Proof Key for Code Exchange) for OAuth
-- Automatic token refresh
-- Secure logout with Cognito hosted UI
-
-## Configuration
-
-### Environment Variables
+#### Production Mode (Headless)
 ```bash
-# AWS Cognito Configuration
-VITE_COGNITO_REGION=us-east-1
-VITE_COGNITO_USER_POOL_ID=us-east-1_abc123
-VITE_COGNITO_CLIENT_ID=abc123def456
-VITE_COGNITO_DOMAIN=my-app-auth
-
-# Auth Service Configuration  
-VITE_AUTH_BASE_PATH=/auth
 VITE_DEBUG_MODE=false
 ```
+- **Invisible Operation** - No UI, pure authentication logic
+- **Automatic Redirects** - Seamless return to original destination
+- **Minimal Footprint** - Optimised bundle size for production
 
-### AWS Cognito Setup
-1. Create a Cognito User Pool
-2. Configure App Client with:
-   - Authorization code grant flow
-   - PKCE enabled
-   - Allowed callback URLs: `https://yourdomain.com/auth/callback`
-   - Allowed sign-out URLs: `https://yourdomain.com/auth/`
-   - OpenID Connect scopes: `openid`, `email`
+#### Debug Mode (Development)
+```bash
+VITE_DEBUG_MODE=true
+```
+- **Authentication Dashboard** - Visual token inspection and testing
+- **Flow Debugging** - Step-by-step OAuth2 flow visualization
+- **Token Management** - Manual token refresh and logout testing
 
-## Development
+### 🌐 Integration Capabilities
+- **AWS Cognito Native** - Optimised for Cognito User Pools and Identity Pools
+- **Generic OIDC Support** - Compatible with any OpenID Connect provider
+- **Lambda@Edge Ready** - Designed for JWT Authentication Gateway integration
+- **Multi-Application Support** - Single auth service for multiple SPAs
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- AWS Cognito User Pool configured
-- CloudFront distribution (for production)
+- Node.js 20+ development environment
+- AWS Cognito User Pool configured with OAuth2 settings
+- CloudFront distribution with JWT Authentication Gateway deployed
 
 ### Installation
+
 ```bash
+# Clone the repository
+git clone https://github.com/your-org/oauth2-auth-ui.git
+cd oauth2-auth-ui
+
+# Install dependencies
 npm install
+
+# Configure environment variables
+cp .env.example .env.local
+# Edit .env.local with your configuration
 ```
 
-### Development Server
+### Configuration
+
+Create `.env.local` file with your AWS Cognito configuration:
+
 ```bash
-npm start          # Runs with debug mode enabled
+# AWS Cognito Configuration
+VITE_COGNITO_REGION=ap-southeast-2
+VITE_COGNITO_USER_POOL_ID=ap-southeast-2_abc123def
+VITE_COGNITO_CLIENT_ID=1234567890abcdef
+VITE_COGNITO_DOMAIN=your-app-auth
+
+# Authentication Service Configuration
+VITE_AUTH_BASE_PATH=/auth
+VITE_DEBUG_MODE=false
+
+# Optional: Custom redirect URIs
+VITE_REDIRECT_URI=https://yourdomain.com/auth/callback
+VITE_POST_LOGOUT_REDIRECT_URI=https://yourdomain.com/auth/
 ```
 
-### Production Build
+### Development
+
 ```bash
-VITE_DEBUG_MODE=false npm run build
-```
+# Start development server with debug mode
+VITE_DEBUG_MODE=true npm start
 
-## Lambda@Edge Integration
-
-### JWT Validation Logic
-Your Lambda@Edge function should:
-
-1. Check for `auth_token` cookie
-2. Validate JWT signature and expiration
-3. If invalid/missing: redirect to `/auth/?return_url=${originalUrl}`
-4. If valid: allow request to proceed
-
-### Example Lambda@Edge Flow
-```javascript
-exports.handler = (event, context, callback) => {
-    const request = event.Records[0].cf.request;
-    const headers = request.headers;
-    
-    // Extract JWT from cookie
-    const authCookie = extractAuthCookie(headers.cookie);
-    
-    if (!isValidJWT(authCookie)) {
-        // Redirect to auth service
-        const response = {
-            status: '302',
-            headers: {
-                location: [{
-                    key: 'Location',
-                    value: `/auth/?return_url=${encodeURIComponent(request.uri)}`
-                }]
-            }
-        };
-        callback(null, response);
-    } else {
-        // Allow request
-        callback(null, request);
-    }
-};
-```
-
-## Deployment
-
-### Build Process
-```bash
 # Production build (headless mode)
 VITE_DEBUG_MODE=false npm run build
 
-# Deploy to S3 bucket mapped to /auth/* in CloudFront
-aws s3 sync dist/ s3://your-bucket/auth/ --delete
+# Preview production build
+npm run preview
 ```
 
-### CloudFront Behaviors
-Configure these behaviors in your CloudFront distribution:
+## 🔗 Integration with JWT Authentication Gateway
 
-- **`/auth/*`** → S3 bucket with this auth service
-- **`/app1/*`** → S3 bucket with protected app 1  
-- **`/app2/*`** → S3 bucket with protected app 2
-- **`/public/*`** → S3 bucket with public assets (no Lambda@Edge)
+This authentication UI is designed to work seamlessly with the **JWT Authentication Gateway** Lambda@Edge function:
 
-## Security Considerations
+## 🤝 Contributing
 
-- JWT cookies should be HTTP-only and Secure
-- Use Lambda@Edge for server-side JWT validation
-- Implement proper CORS headers for cross-origin requests
-- Regular token rotation and validation
-- Secure logout clears all authentication state
+We welcome contributions from the community! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
 
-## Use Cases
+- Code style and standards (Prettier + ESLint)
+- Testing requirements (Vitest + React Testing Library)
+- Pull request process
+- Security considerations
 
-This architecture is ideal for:
-- Multi-tenant SaaS applications
-- Microservices with shared authentication
-- Static site generators requiring authentication
-- Enterprise applications with multiple frontend apps
-- Any scenario requiring centralized auth with distributed apps
+## 📄 License
 
-## Contributing
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-1. Follow React 19 and TypeScript best practices
-2. Test both headless and debug modes
-3. Ensure Lambda@Edge compatibility
-4. Update documentation for architectural changes
+## 🆘 Support
+
+- **Documentation**: [Wiki](https://github.com/your-org/oauth2-auth-ui/wiki)
+- **Issues**: [GitHub Issues](https://github.com/your-org/oauth2-auth-ui/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/oauth2-auth-ui/discussions)
+- **Security**: [Security Policy](SECURITY.md)
+
+---
+
+**Built with ❤️ for secure, scalable authentication**
