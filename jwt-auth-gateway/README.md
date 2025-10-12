@@ -244,3 +244,5 @@ SPA_BASE_PATH = apps;
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 **Built with ❤️ for the AWS community**
+
+**Watch Full Tutorial: [How to Host your JS App on AWS like a BOSS](https://youtu.be/Pb23xfcLMJc)**

@@ -40,4 +40,5 @@ For setup and usage details, see the individual project READMEs.
 
 Watch the accompanying **YouTube tutorial** for a complete walkthrough on deploying your JavaScript app to AWS — including how to configure and deploy the Lambda@Edge functions provided in this repository.
 
-**How to Host Your JS App on AWS Like a BOSS**
+
+**Watch Full Tutorial: [How to Host your JS App on AWS like a BOSS](https://youtu.be/Pb23xfcLMJc)**

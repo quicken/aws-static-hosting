@@ -9,7 +9,7 @@
 
 ## 🚀 Overview
 
-**OAuth2 Authentication UI** is a POC of production-ready React application that provides seamless authentication services for the JWT Authentication Gateway ecosystem. Built as a headless authentication service, it handles the complete OAuth2 Authorization Code with PKCE flow while maintaining enterprise security standards.
+**OAuth2 Authentication UI** is a POC of a near production-ready React application that provides seamless authentication services for the JWT Authentication Gateway ecosystem. Built as a close to headless authentication service, it handles the complete OAuth2 Authorization Code with PKCE flow while maintaining enterprise security standards.
 
 *As always do your own due diligence before using this application.*
 
@@ -19,7 +19,7 @@
 - ✅ **OAuth2 PKCE Compliance** - RFC 7636 compliant implementation for maximum security
 - ✅ **Enterprise Integration** - Seamless AWS Cognito and OIDC provider compatibility
 - ✅ **Developer Experience** - Modern React 19 with TypeScript and Vite tooling
-- ✅ **Production Ready** - Comprehensive error handling and security best practices
+- ✅ **Near Production Ready** - Comprehensive error handling and security best practices
 
 ## 🎯 Problem Statement
 
@@ -143,3 +143,5 @@ This authentication UI is designed to work seamlessly with the **JWT Authenticat
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 **Built with ❤️ for secure, scalable authentication**
+
+**Watch Full Tutorial: [How to Host your JS App on AWS like a BOSS](https://youtu.be/Pb23xfcLMJc)**
