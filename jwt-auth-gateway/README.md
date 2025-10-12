@@ -8,15 +8,17 @@
 
 ## 🚀 Overview
 
-**JWT Authentication Gateway** is a production-ready Lambda@Edge function that transforms AWS CloudFront into a secure hosting platform for multiple single-page applications (SPAs). Built for enterprises requiring cost-effective, scalable authentication without sacrificing performance or security.
+**JWT Authentication Gateway** is a near production-ready Lambda@Edge function that transforms AWS CloudFront into a secure hosting platform for multiple single-page applications (SPAs). Built for enterprises requiring cost-effective, scalable authentication without sacrificing performance or security.
+
+👉 As per always do your own due diligence and look at the code to make sure it works like YOU need it to.
 
 ### Key Value Propositions
 
-✅ **Zero Infrastructure Overhead** - Serverless authentication at the edge
-✅ **Enterprise Security** - Industry-standard JWT validation with cryptographic verification
-✅ **Cost Optimisation** - Pay-per-request pricing with CloudFront's global CDN performance
-✅ **Multi-Tenant Ready** - Host unlimited SPAs under a single distribution
-✅ **Developer Experience** - Seamless integration with modern React applications
+- ✅ **Zero Infrastructure Overhead** - Serverless authentication at the edge
+- ✅ **Enterprise Security** - Industry-standard JWT validation with cryptographic verification
+- ✅ **Cost Optimisation** - Pay-per-request pricing with CloudFront's global CDN performance
+- ✅ **Multi-Tenant Ready** - Host unlimited SPAs under a single distribution
+- ✅ **Developer Experience** - Seamless integration with modern React applications
 
 ## 🎯 Problem Statement
 
@@ -28,19 +30,25 @@ Traditional web application hosting requires complex infrastructure for authenti
 - Manual SSL certificate management
 - Geographic content distribution setup
 
-## 🏗️ Architecture
+## 📊 Use Cases
 
-```mermaid
-graph TD
-    A[User Request] --> B[CloudFront Distribution]
-    B --> C[Lambda@Edge Function]
-    C --> D{JWT Valid?}
-    D -->|Yes| E[Serve from S3]
-    D -->|No| F[Redirect to Auth]
-    F --> G[OAuth2 PKCE Flow]
-    G --> H[Set JWT Cookie]
-    H --> I[Return to Original URL]
-```
+### Enterprise Applications
+
+- **Multi-tenant SaaS platforms** with shared authentication
+- **Internal company portals** with department-specific applications
+- **Customer-facing dashboards** with role-based access control
+
+### Development Teams
+
+- **Microservices frontends** requiring centralized authentication
+- **Static site generators** with premium content protection
+- **JAMstack applications** needing user authentication
+
+### Cost-Conscious Organizations
+
+- **Startups** requiring enterprise-grade security without infrastructure costs
+- **SMBs** needing scalable authentication without DevOps overhead
+- **Agencies** managing multiple client applications
 
 ## 🔧 Technical Specifications
 
@@ -93,7 +101,7 @@ graph TD
 ### Prerequisites
 
 - AWS Account with CloudFront and Lambda@Edge permissions
-- Node.js 18+ development environment
+- Node.js 20+ development environment
 - AWS Cognito User Pool (or compatible OIDC provider)
 
 ### Installation
@@ -134,6 +142,8 @@ npm run build
 npm run package
 
 # Deploy to AWS Lambda (us-east-1 required for Lambda@Edge)
+# Adjust the filename according to the version you want to deploy.
+
 aws lambda create-function \
   --region us-east-1 \
   --function-name jwt-auth-gateway \
@@ -205,26 +215,6 @@ This gateway is designed to work seamlessly with the companion **auth-ui** proje
 
 The auth-ui handles the complete OAuth2 flow while this gateway provides the authorization enforcement.
 
-## 📊 Use Cases
-
-### Enterprise Applications
-
-- **Multi-tenant SaaS platforms** with shared authentication
-- **Internal company portals** with department-specific applications
-- **Customer-facing dashboards** with role-based access control
-
-### Development Teams
-
-- **Microservices frontends** requiring centralized authentication
-- **Static site generators** with premium content protection
-- **JAMstack applications** needing user authentication
-
-### Cost-Conscious Organizations
-
-- **Startups** requiring enterprise-grade security without infrastructure costs
-- **SMBs** needing scalable authentication without DevOps overhead
-- **Agencies** managing multiple client applications
-
 ## 🔧 Advanced Configuration
 
 ### Multi-SPA Routing
@@ -241,76 +231,16 @@ SPA_BASE_PATH = apps;
 // /apps/analytics/reports  → /apps/analytics/index.html
 ```
 
-### CloudFront Behavior Configuration
-
-```yaml
-Behaviors:
-  - PathPattern: "/auth/*"
-    TargetOrigin: S3Origin
-    ViewerProtocolPolicy: redirect-to-https
-    LambdaFunctionAssociations:
-      - EventType: viewer-request
-        LambdaFunctionARN: !Ref JWTAuthGatewayVersion
-
-  - PathPattern: "/apps/*"
-    TargetOrigin: S3Origin
-    ViewerProtocolPolicy: redirect-to-https
-    CachePolicyId: CachingDisabled
-    LambdaFunctionAssociations:
-      - EventType: viewer-request
-        LambdaFunctionARN: !Ref JWTAuthGatewayVersion
-```
-
-## 🧪 Testing
-
-Comprehensive test suite covering all authentication scenarios:
-
-```bash
-# Run test suite
-npm test
-
-# Generate coverage report
-npm run test:coverage
-
-# Single test execution
-npm run test:run
-```
-
-**Test Coverage**:
-
-- JWT token validation scenarios
-- URL routing and rewriting logic
-- Authentication flow edge cases
-- Error handling and security boundaries
-
 ## 📈 Performance Metrics
 
 | Metric              | Value     | Notes                          |
 | ------------------- | --------- | ------------------------------ |
 | Cold Start Latency  | < 100ms   | Typical edge location response |
-| Memory Usage        | 128MB     | Recommended Lambda allocation  |
 | Concurrent Requests | Unlimited | Auto-scaling with CloudFront   |
 | Global Availability | 99.99%    | AWS infrastructure SLA         |
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
-
-- Code style and standards
-- Testing requirements
-- Pull request process
-- Issue reporting
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [Wiki](https://github.com/your-org/jwt-auth-gateway/wiki)
-- **Issues**: [GitHub Issues](https://github.com/your-org/jwt-auth-gateway/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/jwt-auth-gateway/discussions)
-
----
 
 **Built with ❤️ for the AWS community**

@@ -15,11 +15,11 @@
 
 ### Key Value Propositions
 
-✅ **Generic Architecture** - Authentication handling with automatic redirects
-✅ **OAuth2 PKCE Compliance** - RFC 7636 compliant implementation for maximum security
-✅ **Enterprise Integration** - Seamless AWS Cognito and OIDC provider compatibility
-✅ **Developer Experience** - Modern React 19 with TypeScript and Vite tooling
-✅ **Production Ready** - Comprehensive error handling and security best practices
+- ✅ **Generic Architecture** - Authentication handling with automatic redirects
+- ✅ **OAuth2 PKCE Compliance** - RFC 7636 compliant implementation for maximum security
+- ✅ **Enterprise Integration** - Seamless AWS Cognito and OIDC provider compatibility
+- ✅ **Developer Experience** - Modern React 19 with TypeScript and Vite tooling
+- ✅ **Production Ready** - Comprehensive error handling and security best practices
 
 ## 🎯 Problem Statement
 
@@ -31,35 +31,6 @@ Modern web applications require secure, user-friendly authentication that doesn'
 - Custom security implementations prone to vulnerabilities
 
 This solution provides a **mostly headless authentication service** that handles all OAuth2 complexity while maintaining seamless user experience.
-
-## 🏗️ Architecture
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant CF as CloudFront
-    participant LE as Lambda@Edge
-    participant AU as Auth UI
-    participant CG as AWS Cognito
-
-    U->>CF: Request /apps/dashboard
-    CF->>LE: Viewer Request
-    LE->>LE: Validate JWT Cookie
-    LE-->>CF: 302 Redirect to /auth/?return_url=...
-    CF->>AU: Load Auth UI
-    AU->>AU: Check Authentication Status
-    AU->>CG: Initiate OAuth2 PKCE Flow
-    CG->>U: Cognito Hosted UI
-    U->>CG: User Authentication
-    CG->>AU: Authorization Code + State
-    AU->>CG: Exchange Code for JWT (PKCE)
-    AU->>AU: Set Secure JWT Cookie
-    AU->>CF: Redirect to Original URL
-    CF->>LE: Viewer Request (with JWT)
-    LE->>LE: Validate JWT ✓
-    LE->>CF: Allow Request
-    CF->>U: Serve Protected Content
-```
 
 ## 🔧 Technical Specifications
 
@@ -167,26 +138,8 @@ npm run preview
 
 This authentication UI is designed to work seamlessly with the **JWT Authentication Gateway** Lambda@Edge function:
 
-## 🤝 Contributing
-
-We welcome contributions from the community! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
-
-- Code style and standards (Prettier + ESLint)
-- Testing requirements (Vitest + React Testing Library)
-- Pull request process
-- Security considerations
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [Wiki](https://github.com/your-org/oauth2-auth-ui/wiki)
-- **Issues**: [GitHub Issues](https://github.com/your-org/oauth2-auth-ui/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/oauth2-auth-ui/discussions)
-- **Security**: [Security Policy](SECURITY.md)
-
----
 
 **Built with ❤️ for secure, scalable authentication**

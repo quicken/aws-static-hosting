@@ -1,84 +1,43 @@
-## 🆕 Repository Update
+# AWS Static Hosting
 
-New: For environments requiring more enterprise like security, I have added a more sophisticated JWT-based authentication
-solution as an alternative to the basic authentication demonstrated in the YouTube tutorial.
+This project provides practical examples and code for hosting static JavaScript applications that use client-side routing (such as React, Next.js, or Docusaurus) behind an **AWS CloudFront distribution**.
 
-### Project Reorganisation
-• **Basic Authentication**: Moved to basic-auth/ subfolder (YouTube tutorial code)
-• **JWT Authentication**: New jwt-auth-gateway/ - Enterprise JWT validation with AWS Cognito
-• **OAuth2 Client**: New auth-ui/ - React application implementing OAuth2 PKCE flow
+It demonstrates one of the **most cost-effective and scalable** ways to host a **Single Page Application (SPA)** in AWS. The included Lambda@Edge functions handle routing and security, enabling you to protect private content — including source code — using either **Basic Authentication** or a more advanced **JWT-based validation** approach.
 
-### Enterprise Authentication Solution
-The jwt-auth-gateway and auth-ui projects provide an end-to-end solution for hosting protected SPA applications in
-CloudFront with:
+The project also includes a sample **React UI** that implements OAuth2 with PKCE, showing how to build a **complete hosting solution** for private or membership-based content using **AWS Cognito** as the identity provider.
 
-• AWS Cognito integration
-• JWT token validation
-• OAuth2 Authorization Code with PKCE flow
-• Multi-application support under single distribution
-
-See individual project READMEs for complete implementation details.
 ---
 
-# AWS-static-hosting
+## Repository Update
 
-This project contains code that can be useful when hosting a static JS Application that uses client-side routing behind an AWS Cloudfront distribution.
+**New:** For teams or environments that require more enterprise-grade security, this repository now includes an example of a **JWT-based authentication gateway** as an alternative to the Basic Authentication method shown in the YouTube tutorial.
+The overall hosting principle remains the same.
 
-The sample lambda demonstrated protecting a JS App hosted with CloudFront and S3 using basic authentication. As well as demonstrating re-writing URLs in cases where the Client-Side routing hides files behind directory names.
+---
 
-The code has been used with DocuSaurus, Next.js as well as React Applications and is likely to work with any application that works similarly.
+## Project Structure
 
+- **`basic-auth/`** — Basic Authentication (code featured in the YouTube tutorial)
+- **`jwt-auth-gateway/`** — Enterprise-ready JWT validation with AWS Cognito
+- **`auth-ui/`** — React application implementing OAuth2 Authorisation Code with PKCE
 
-## Hosting your JS App in AWS
+---
 
-Watch this tutorial for a full guide on hosting your JS App in AWS including deployment of this function code.
-[How to Host your JS App on AWS like a BOSS](https://youtu.be/Pb23xfcLMJc)
+## Enterprise Authentication Solution
 
-## Building
+The **`jwt-auth-gateway`** and **`auth-ui`** projects together form a complete, production-ready authentication solution for hosting secure SPAs on AWS CloudFront, offering:
 
-If you do not wish to or can't build the project you can grab a compiled copy of the javascript code from the release section on git hub.
+- Seamless **AWS Cognito integration**
+- **JWT token validation** for protected routes
+- Full **OAuth2 Authorisation Code with PKCE** flow
+- Support for **multiple applications** under a single CloudFront distribution
 
-[View Releases](https://github.com/quicken/aws-static-hosting/releases)
+For setup and usage details, see the individual project READMEs.
 
-1. Clone this repository
-2. ```bash
-   nvm use
-   yarn install
-   yarn build
-   ```
-    The build outputs javascript files into the "dist" folder. These files contain the JavaScript code that needs to be uploaded to AWS.
+---
 
-## Deployment
+## Hosting Your JS App in AWS
 
-A full walkthrough of setting up hosting of static JS site including deployment of this code can be found on youtube.
+Watch the accompanying **YouTube tutorial** for a complete walkthrough on deploying your JavaScript app to AWS — including how to configure and deploy the Lambda@Edge functions provided in this repository.
 
-Open the lambda edge function.
-Copy and Paste the generated javascript from the lambd_edge_static_site.js directly into the index.js file inside of the lambda web console.
-
-See the build section for more information.
-
-1. Deploy the Lambda. (NOTE: This is different to deploy to lambda edge. If this step is skipped the old code will be deployed to lambda edge.)
-2. Deploy the Lamba to Cloudfrount: Action -> Deploy To Lambda Edge.
-3. Selected the event: viewer request
-4. If you have enabled basic authentication you must also check the option: "body".
-5. Deploy the Lamda.
-
-## Enabling Basic Authentication
-
-Within the javascript change the property **"REQUIRE_AUTHENTICATION"** from false to true. Then be sure to set the set of username/passwords that are allowed to authenticate in the array **"AUTH_CREDENTIALS"**.
-
-Be aware that using Basic Authentication requires checking the "body" option when deploying the "viewer_request" event to lambda edge.
-
-## Known Issue:
-
-If a folder contains a period index.html is not automatically appended causing a 403 or 404 error instead of serving up the page.
-
-This can be mitigated by additionally rewriting all 403 errors with the /index.html page using the CloudFront error re-write functionality.
-
-Using this "hack" any 403 error returned by CloudFront is re-written to status code 200 and the /index.html page is served up. In combination with the basic auth implemented by this lambda is not an issue.
-
-### Generating TypeDocs.
-
-```bash
-yarn docs
-```
+**How to Host Your JS App on AWS Like a BOSS**
