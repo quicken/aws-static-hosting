@@ -139,3 +139,9 @@ shared-local-instance.db
 
 /**/docs/sdk/
 bin/
+
+# OpenTofu / Terraform (jwt-auth-gateway/terraform). The lock files are committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
