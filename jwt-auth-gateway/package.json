@@ -1,25 +1,30 @@
 {
   "name": "jwt-auth-gateway",
-  "version": "1.0.12",
-  "description": "Lambda@Edge authorization function for JWT protected React apps",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "node build.js",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "package": "npm run build && mkdir -p bin && cd dist && zip -r ../bin/lambda-$(node -p \"require('../package.json').name\")-$(node -p \"require('../package.json').version\").zip index.js"
+  "version": "2.0.0",
+  "description": "Lambda@Edge gateway that puts a Cognito login (PKCE, HttpOnly cookies) and per-app SPA routing in front of static apps hosted on S3 + CloudFront.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
   },
-  "dependencies": {
-    "jsonwebtoken": "^9.0.2",
-    "jwks-client": "^2.0.5"
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && node build.mjs",
+    "test": "vitest",
+    "deploy": "./deploy.sh"
+  },
+  "author": "Marcel Scherzer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quicken/aws-static-hosting.git",
+    "directory": "jwt-auth-gateway"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.152",
-    "@types/jsonwebtoken": "^9.0.7",
-    "@types/node": "^24.3.1",
-    "dotenv": "^16.4.5",
-    "esbuild": "^0.25.10",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "@types/aws-lambda": "^8.10.164",
+    "@types/node": "^24.19.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
   }
 }

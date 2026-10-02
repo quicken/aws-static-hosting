@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Optional Cognito user pool for the jwt-auth-gateway: a pool, a hosted UI domain and a public
+  (PKCE, no secret) app client. Deploy to any region. Skip this if you already have a pool;
+  your app client needs the same settings as the one below.
+
+Parameters:
+  DomainPrefix:
+    Type: String
+    AllowedPattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+    Description: Hosted UI prefix, giving <prefix>.auth.<region>.amazoncognito.com. Must be globally unique.
+  SiteHost:
+    Type: String
+    Description: >-
+      Host the apps are served from, e.g. apps.example.com or d111111abcdef8.cloudfront.net.
+      Without a custom domain, deploy the hosting stack first, then update this stack with its
+      DistributionDomainName output.
+  AdminCreateUserOnly:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Leave true for internal apps, so only administrators can create users.
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-users
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: !Ref AdminCreateUserOnly
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Ref DomainPrefix
+
+  # Public client: no secret, authorisation code grant only. The gateway always sends a PKCE
+  # code_challenge, so Cognito insists on the matching verifier when the code is redeemed.
+  AppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub ${AWS::StackName}-edge-gateway
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs:
+        - !Sub https://${SiteHost}/_auth/callback
+      LogoutURLs:
+        - !Sub https://${SiteHost}/
+      ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
+      EnableTokenRevocation: true
+      PreventUserExistenceErrors: ENABLED
+      # Keep RefreshTokenValidity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/config.ts.
+      IdTokenValidity: 60
+      AccessTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: days
+
+Outputs:
+  # Copy these into jwt-auth-gateway/.env.
+  CognitoRegion:
+    Value: !Ref AWS::Region
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoClientId:
+    Value: !Ref AppClient
+  CognitoDomain:
+    Value: !Sub ${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com

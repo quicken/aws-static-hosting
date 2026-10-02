@@ -1,77 +1,103 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { isPublicPath, rewrite } from '../src/lib/routing';
+import { describe, it, expect } from 'vitest';
+import { isApiPath, isNormalisedPath, isPageRequest, isPublicPath, resolveAppShell, safeReturnPath, stripApiPrefix } from '../src/lib/routing.js';
 
-describe('Routing utilities', () => {
-  beforeEach(() => {
-    delete process.env.SPA_BASE_PATH;
+describe('isNormalisedPath', () => {
+  it('accepts ordinary paths, including dots inside names', () => {
+    for (const path of ['/', '/billing', '/billing/invoices/7', '/billing/app.js', '/docs/v1.2/guide', '/.well-known/x', '/a%20b']) {
+      expect(isNormalisedPath(path)).toBe(true);
+    }
   });
 
-  describe('rewrite', () => {
-    it('should rewrite root path to /public/index.html', () => {
-      expect(rewrite('/')).toBe('/public/index.html');
-    });
+  it('rejects anything CloudFront would normalise into a different path', () => {
+    for (const path of ['//billing', '/docs//x', '/docs/../billing', '/docs/..', '/./billing', '/docs/.', '/docs\\..\\billing', '/docs/%2e%2e/billing', '/docs/%2E%2E/billing', '/docs%2fbilling', '/docs%5c..', 'billing']) {
+      expect(isNormalisedPath(path)).toBe(false);
+    }
+  });
+});
 
-    it('should rewrite auth paths to /auth/index.html', () => {
-      expect(rewrite('/auth')).toBe('/auth/index.html');
-      expect(rewrite('/auth/')).toBe('/auth/index.html');
-      expect(rewrite('/auth/callback')).toBe('/auth/index.html');
-    });
-
-    it('should not rewrite asset files', () => {
-      expect(rewrite('/assets/main.js')).toBe('/assets/main.js');
-      expect(rewrite('/favicon.ico')).toBe('/favicon.ico');
-      expect(rewrite('/index.html')).toBe('/index.html');
-    });
-
-    it('should not rewrite SPA routes when no base path configured', () => {
-      expect(rewrite('/dashboard')).toBe('/dashboard');
-      expect(rewrite('/users/123')).toBe('/users/123');
-    });
-
-    it('should rewrite SPA routes under base path', () => {
-      process.env.SPA_BASE_PATH = 'apps';
-      expect(rewrite('/apps/dashboard')).toBe('/apps/dashboard/index.html');
-      expect(rewrite('/apps/admin/users')).toBe('/apps/admin/index.html');
-    });
-
-    it('should rewrite base path only to base index.html', () => {
-      process.env.SPA_BASE_PATH = 'apps';
-      expect(rewrite('/apps')).toBe('/apps/index.html');
-    });
-
-    it('should not rewrite paths outside base path', () => {
-      process.env.SPA_BASE_PATH = 'apps';
-      expect(rewrite('/dashboard')).toBe('/dashboard');
-      expect(rewrite('/other/path')).toBe('/other/path');
-    });
+describe('resolveAppShell', () => {
+  it('maps the root to the shell index.html (Trailhead at the root)', () => {
+    expect(resolveAppShell('/', '')).toBe('/index.html');
   });
 
-  describe('isPublicPath', () => {
-    it('should return true for root path', () => {
-      expect(isPublicPath('/')).toBe(true);
-    });
+  it('maps an app folder and its deep links to the app index.html', () => {
+    expect(resolveAppShell('/customers', '')).toBe('/customers/index.html');
+    expect(resolveAppShell('/customers/', '')).toBe('/customers/index.html');
+    expect(resolveAppShell('/customers/42/orders', '')).toBe('/customers/index.html');
+  });
 
-    it('should return true for index.html', () => {
-      expect(isPublicPath('/index.html')).toBe(true);
-    });
+  it('leaves real assets alone', () => {
+    expect(resolveAppShell('/customers/app.js', '')).toBe('/customers/app.js');
+    expect(resolveAppShell('/shell.json', '')).toBe('/shell.json');
+    expect(resolveAppShell('/customers/about.html', '')).toBe('/customers/about.html');
+  });
 
-    it('should return true for auth paths', () => {
-      expect(isPublicPath('/auth')).toBe(true);
-      expect(isPublicPath('/auth/')).toBe(true);
-      expect(isPublicPath('/auth/callback')).toBe(true);
-      expect(isPublicPath('/auth/logout')).toBe(true);
-    });
+  it('applies beneath an app base path and ignores paths outside it', () => {
+    expect(resolveAppShell('/apps', '/apps')).toBe('/apps/index.html');
+    expect(resolveAppShell('/apps/crm/deals/7', '/apps')).toBe('/apps/crm/index.html');
+    expect(resolveAppShell('/docs/intro', '/apps')).toBe('/docs/intro');
+    expect(resolveAppShell('/appsfoo/x', '/apps')).toBe('/appsfoo/x');
+  });
+});
 
-    it('should return true for public path', () => {
-      expect(isPublicPath('/public')).toBe(true);
-    });
+describe('isPublicPath', () => {
+  it('matches whole path segments only', () => {
+    expect(isPublicPath('/public', ['/public'])).toBe(true);
+    expect(isPublicPath('/public/landing', ['/public'])).toBe(true);
+    expect(isPublicPath('/publications/secret', ['/public'])).toBe(false);
+  });
 
-    it('should return false for all other paths', () => {
-      expect(isPublicPath('/dashboard')).toBe(false);
-      expect(isPublicPath('/users/123')).toBe(false);
-      expect(isPublicPath('/assets/main.js')).toBe(false);
-      expect(isPublicPath('/favicon.ico')).toBe(false);
-      expect(isPublicPath('/apps/dashboard')).toBe(false);
-    });
+  it('can open up a Trailhead shell and one app while other apps stay behind the login', () => {
+    const publicPaths = ['/', '/index.html', '/shell.js', '/shell.css', '/shell.json', '/webawesome', '/docs'];
+    for (const path of ['/', '/index.html', '/shell.json', '/webawesome/components/button.js', '/docs/getting-started']) {
+      expect(isPublicPath(path, publicPaths)).toBe(true);
+    }
+    for (const path of ['/billing', '/billing/invoices/7', '/billing/app.js', '/docsx', '//billing']) {
+      expect(isPublicPath(path, publicPaths)).toBe(false);
+    }
+  });
+
+  it('treats a public "/" as the root only', () => {
+    expect(isPublicPath('/', ['/'])).toBe(true);
+    expect(isPublicPath('/billing', ['/'])).toBe(false);
+    expect(isPublicPath('//billing', ['/'])).toBe(false);
+  });
+
+  it('always allows favicon.ico and robots.txt', () => {
+    expect(isPublicPath('/favicon.ico', [])).toBe(true);
+    expect(isPublicPath('/robots.txt', [])).toBe(true);
+  });
+});
+
+describe('API paths', () => {
+  it('matches the prefix on segment boundaries and can be disabled', () => {
+    expect(isApiPath('/api/orders', '/api')).toBe(true);
+    expect(isApiPath('/apiary', '/api')).toBe(false);
+    expect(isApiPath('/api/orders', '')).toBe(false);
+  });
+
+  it('strips the prefix', () => {
+    expect(stripApiPrefix('/api/orders/5', '/api')).toBe('/orders/5');
+    expect(stripApiPrefix('/api', '/api')).toBe('/');
+  });
+});
+
+describe('isPageRequest', () => {
+  it('treats extensionless paths and .html as pages', () => {
+    expect(isPageRequest('/customers/42')).toBe(true);
+    expect(isPageRequest('/index.html')).toBe(true);
+    expect(isPageRequest('/customers/app.js')).toBe(false);
+  });
+});
+
+describe('safeReturnPath', () => {
+  it('keeps same-site paths including the query string', () => {
+    expect(safeReturnPath('/customers/42?tab=orders')).toBe('/customers/42?tab=orders');
+  });
+
+  it('rejects anything that could leave the site', () => {
+    for (const candidate of ['//evil.example', '/\\evil.example', 'https://evil.example', 'javascript:alert(1)', '/ok\r\nSet-Cookie: x', '', null, undefined]) {
+      expect(safeReturnPath(candidate)).toBe('/');
+    }
   });
 });

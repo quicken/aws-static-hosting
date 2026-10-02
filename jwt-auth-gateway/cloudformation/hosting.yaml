@@ -1,0 +1,259 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Private static hosting for single page apps (e.g. a Trailhead shell and its apps): a private S3
+  bucket behind CloudFront, gated by a Cognito login at the edge. Deploy to us-east-1, where
+  Lambda@Edge functions must live. Deploy with deploy.sh: it deploys dist/hosting.yaml, the
+  copy of this template that build.mjs writes with the gate's code embedded.
+
+# Behaviour routing (most specific first):
+#   /_auth/*        auth-routes  Lambda@Edge, viewer-request          sign-in, callback, refresh, sign-out
+#   {ApiPrefix}/*   check-auth   CloudFront Function, viewer-request  cookie → Bearer to the API (optional)
+#   default         check-auth   CloudFront Function, viewer-request  login gate + deep links → cached S3
+#
+# The gate runs on every request, so it is a CloudFront Function: sub-millisecond, at every edge
+# location, no cold starts, a fraction of Lambda@Edge's price. It can't verify RSA signatures, so
+# it checks an HMAC stamp that auth-routes sets after fully verifying the Cognito token. Lambda@Edge
+# only runs for the rare /_auth/* requests.
+#
+# Nothing forwards the viewer's cookies or Host header to S3. Both functions run at viewer-request,
+# where they see both, so the S3 behaviours need no origin request policy, and Origin Access
+# Control signing works without special handling.
+
+Parameters:
+  AuthRoutesCodeSha256:
+    Type: String
+    Description: Base64 SHA-256 of dist/auth-routes.zip. A new hash publishes a new function version.
+  DomainName:
+    Type: String
+    Default: ""
+    Description: Optional custom domain, e.g. apps.example.com. Leave empty to use the CloudFront domain.
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate in us-east-1 covering DomainName. Required when DomainName is set.
+  ApiOriginDomain:
+    Type: String
+    Default: ""
+    Description: Optional API origin host (e.g. abc123.execute-api.ap-southeast-2.amazonaws.com) served under ApiPrefix.
+  ApiPrefix:
+    Type: String
+    Default: /api
+    AllowedPattern: ^/[A-Za-z0-9_-]+$
+    Description: Same-origin API prefix. Must match API_PREFIX used when building the functions.
+  PriceClass:
+    Type: String
+    Default: PriceClass_All
+    AllowedValues: [PriceClass_100, PriceClass_200, PriceClass_All]
+
+Rules:
+  CustomDomainNeedsCertificate:
+    RuleCondition: !Not [!Equals [!Ref DomainName, ""]]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref CertificateArn, ""]]
+        AssertDescription: CertificateArn (an ACM certificate in us-east-1) is required when DomainName is set.
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
+  HasApiOrigin: !Not [!Equals [!Ref ApiOriginDomain, ""]]
+
+Mappings:
+  # AWS managed policy ids.
+  Policies:
+    Cache:
+      CachingOptimized: 658327ea-f89d-4fab-a63d-7e88639e58f6
+      CachingDisabled: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+    OriginRequest:
+      # API Gateway rejects a forwarded viewer Host header; this forwards everything else.
+      AllViewerExceptHostHeader: b689b0a8-53d0-40ab-baf2-68738e2966ac
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Origin: private bucket, readable only by this distribution.
+  # ---------------------------------------------------------------------------
+  OriginBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  OriginBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref OriginBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${OriginBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+      # Deliberately no s3:ListBucket. A missing object is a 403 rather than a 404, but a
+      # request for the bucket root can never return a listing of every key.
+
+  # ---------------------------------------------------------------------------
+  # Edge functions. CloudFront needs a numbered version, never $LATEST. Changing the
+  # CodeSha256 parameter replaces the Version resource, which publishes a new version and
+  # repoints the distribution in the same update. Old versions are retained: their edge
+  # replicas can take hours to clear, and deleting them early fails.
+  # ---------------------------------------------------------------------------
+  EdgeFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [lambda.amazonaws.com, edgelambda.amazonaws.com]
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  AuthRoutesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Viewer-request /_auth/* endpoints (sign-in, callback, refresh, sign-out).
+      Runtime: nodejs24.x
+      Handler: auth-routes.handler
+      Code: ../dist/auth-routes.zip
+      Role: !GetAtt EdgeFunctionRole.Arn
+      MemorySize: 128
+      Timeout: 5
+
+  AuthRoutesVersion:
+    Type: AWS::Lambda::Version
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: !Ref AuthRoutesFunction
+      CodeSha256: !Ref AuthRoutesCodeSha256
+
+  # The per-request gate. Its code carries the session keys, so it lives only in the generated
+  # dist/hosting.yaml, never in this file or in source control.
+  CheckAuthFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-check-auth
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Viewer-request login gate and deep-link rewrite.
+        Runtime: cloudfront-js-2.0
+      FunctionCode: "// Replaced by build.mjs with dist/check-auth.cf.js"
+
+  # ---------------------------------------------------------------------------
+  # Distribution
+  # ---------------------------------------------------------------------------
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub ${AWS::StackName} - static apps behind a Cognito login at the edge
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: !Ref PriceClass
+        Aliases: !If [HasCustomDomain, [!Ref DomainName], !Ref AWS::NoValue]
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        Origins:
+          - Id: s3
+            DomainName: !GetAtt OriginBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - !If
+            - HasApiOrigin
+            - Id: api
+              DomainName: !Ref ApiOriginDomain
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref AWS::NoValue
+
+        # Static app content. Cached, because the gate runs at viewer-request on every request,
+        # cache hits included. Everything served here must be identical for every signed-in
+        # user; give per-user content its own uncached behaviour.
+        DefaultCacheBehavior:
+          TargetOriginId: s3
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: !FindInMap [Policies, Cache, CachingOptimized]
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt CheckAuthFunction.FunctionARN
+
+        CacheBehaviors:
+          # Auth endpoints answer from the edge and never reach S3. Never cached: every response
+          # sets or clears cookies. POST is allowed for /_auth/refresh.
+          - PathPattern: /_auth/*
+            TargetOriginId: s3
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            CachePolicyId: !FindInMap [Policies, Cache, CachingDisabled]
+            LambdaFunctionAssociations:
+              - EventType: viewer-request
+                LambdaFunctionARN: !Ref AuthRoutesVersion
+
+          # Same-origin API: no CORS. Never cached, because responses are per-user.
+          - !If
+            - HasApiOrigin
+            - PathPattern: !Sub ${ApiPrefix}/*
+              TargetOriginId: api
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachedMethods: [GET, HEAD]
+              CachePolicyId: !FindInMap [Policies, Cache, CachingDisabled]
+              OriginRequestPolicyId: !FindInMap [Policies, OriginRequest, AllViewerExceptHostHeader]
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt CheckAuthFunction.FunctionARN
+            - !Ref AWS::NoValue
+
+Outputs:
+  BucketName:
+    Description: Upload your built apps here.
+    Value: !Ref OriginBucket
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+  SiteUrl:
+    Value: !If [HasCustomDomain, !Sub "https://${DomainName}/", !Sub "https://${Distribution.DomainName}/"]
+  CallbackUrl:
+    Description: Register this (and LogoutUrl) on the Cognito app client.
+    Value: !If [HasCustomDomain, !Sub "https://${DomainName}/_auth/callback", !Sub "https://${Distribution.DomainName}/_auth/callback"]
+  LogoutUrl:
+    Value: !If [HasCustomDomain, !Sub "https://${DomainName}/", !Sub "https://${Distribution.DomainName}/"]
