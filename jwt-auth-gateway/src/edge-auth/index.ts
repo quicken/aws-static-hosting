@@ -4,7 +4,7 @@
  * Every route answers with a generated response, so requests never reach the origin. Running at
  * viewer-request gives the function the real `Host` header and the viewer's cookies without
  * forwarding either to S3. Only these rare requests pay for Lambda@Edge; every other request is
- * gated by the CloudFront Function in src/cloudfront/check-auth.ts.
+ * gated by the CloudFront Function in src/cloudfront-gate/index.ts.
  *
  *   GET  /_auth/signin?return=/path  refresh silently if possible, otherwise start PKCE login
  *   GET  /_auth/callback             redeem the code, set session cookies, return to /path
@@ -13,7 +13,7 @@
  */
 import { createHmac } from "node:crypto";
 import type { CloudFrontRequest, CloudFrontRequestEvent, CloudFrontRequestResult } from "aws-lambda";
-import { config } from "../lib/config.js";
+import { config } from "./config.js";
 import {
   AUTH_PREFIX,
   CALLBACK_PATH,
@@ -24,7 +24,7 @@ import {
   SIGNIN_PATH,
   SIGNOUT_PATH,
 } from "../lib/constants.js";
-import { clearCookie, parseCookies, serializeCookie } from "../lib/cookies.js";
+import { clearCookie, parseCookies, serializeCookie } from "./cookies.js";
 import {
   authorizeUrl,
   createPkce,
@@ -36,11 +36,11 @@ import {
   revokeRefreshToken,
   unpackFlowState,
   type TokenSet,
-} from "../lib/oauth.js";
+} from "./oauth.js";
 import { safeReturnPath } from "../lib/routing.js";
 import { sessionSignature } from "../lib/session.js";
-import { verifyIdToken } from "../lib/verify.js";
-import { jsonResponse, noContent, redirect, textResponse } from "../lib/responses.js";
+import { verifyIdToken } from "./verify.js";
+import { jsonResponse, noContent, redirect, textResponse } from "./responses.js";
 
 export async function handler(event: CloudFrontRequestEvent): Promise<CloudFrontRequestResult> {
   const request = event.Records[0].cf.request;

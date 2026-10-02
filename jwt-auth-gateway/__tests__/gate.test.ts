@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { gate, type GateRequest, type GateResponse } from '../src/lib/gate.js';
+import { gate, type GateRequest, type GateResponse } from '../src/cloudfront-gate/gate.js';
 import type { GateConfig } from '../src/types/config.js';
 import { createFunctionEvent, signToken, HOST, type FunctionEventOptions } from './helpers.js';
 

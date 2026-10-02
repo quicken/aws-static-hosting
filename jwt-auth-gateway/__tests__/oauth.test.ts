@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { authorizeUrl, createPkce, packFlowState, unpackFlowState } from '../src/lib/oauth.js';
+import { authorizeUrl, createPkce, packFlowState, unpackFlowState } from '../src/edge-auth/oauth.js';
 import { HOST, HOSTED_UI } from './helpers.js';
 
 describe('createPkce', () => {

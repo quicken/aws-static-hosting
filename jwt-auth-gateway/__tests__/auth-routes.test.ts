@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { handler } from '../src/aws/auth-routes.js';
-import { packFlowState } from '../src/lib/oauth.js';
+import { handler } from '../src/edge-auth/index.js';
+import { packFlowState } from '../src/edge-auth/oauth.js';
 import { createEvent, header, setCookies, signToken, stubCognito, HOST, HOSTED_UI } from './helpers.js';
 
 const tokens = () => ({ id_token: signToken(), access_token: 'access', refresh_token: 'refresh-2', expires_in: 3600, token_type: 'Bearer' });

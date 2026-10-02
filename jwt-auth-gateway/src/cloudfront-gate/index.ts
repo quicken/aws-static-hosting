@@ -1,5 +1,5 @@
 /**
- * CloudFront Function entry point for the gate (see lib/gate.ts).
+ * CloudFront Function entry point for the gate (see ./gate.ts).
  *
  * build.mjs bundles this to dist/check-auth.cf.js and rewrites the module syntax into what the
  * CloudFront Functions runtime expects: a top-level `function handler(event)`, with `crypto`
@@ -8,7 +8,7 @@
 import crypto from "crypto";
 import type { CloudFrontFunctionsEvent } from "aws-lambda";
 import type { GateConfig } from "../types/config.js";
-import { gate } from "../lib/gate.js";
+import { gate } from "./gate.js";
 
 declare const GATE_CONFIG: GateConfig;
 

@@ -6,7 +6,7 @@
  */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config, SCOPES } from "./config.js";
-import { CALLBACK_PATH } from "./constants.js";
+import { CALLBACK_PATH } from "../lib/constants.js";
 
 export interface TokenSet {
   id_token: string;

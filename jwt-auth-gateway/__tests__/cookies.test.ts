@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clearCookie, parseCookies, serializeCookie } from '../src/lib/cookies.js';
+import { clearCookie, parseCookies, serializeCookie } from '../src/edge-auth/cookies.js';
 
 describe('parseCookies', () => {
   it('reads every Cookie header', () => {

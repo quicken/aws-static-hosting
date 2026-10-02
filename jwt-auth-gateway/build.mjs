@@ -2,8 +2,8 @@
 /**
  * Builds everything the hosting stack deploys:
  *
- *  - dist/<name>.mjs         each src/aws/*.ts Lambda@Edge handler (the /_auth/* routes)
- *  - dist/check-auth.cf.js   the CloudFront Function gate (src/cloudfront/check-auth.ts)
+ *  - dist/auth-routes.mjs   the src/edge-auth Lambda@Edge handler (the /_auth/* routes)
+ *  - dist/check-auth.cf.js   the CloudFront Function gate (src/cloudfront-gate)
  *  - dist/hosting.yaml       cloudformation/hosting.yaml with the gate's code embedded, because
  *                            CloudFormation takes CloudFront Function code inline
  *
@@ -17,11 +17,16 @@
  *    the keys on first use.
  */
 import { build } from "esbuild";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { bundleGateFunction } from "./tools/bundle-cloudfront.ts";
 
-const SRC_DIR = "src/aws";
+/**
+ * Lambda@Edge handlers to bundle: entry source → output artefact name. The artefact names are a
+ * contract with the CloudFormation/OpenTofu templates and deploy.sh, so they stay fixed even
+ * though the source now lives in src/edge-auth/. Add a second handler here if one is ever needed.
+ */
+const EDGE_HANDLERS = [{ entry: "src/edge-auth/index.ts", out: "auth-routes" }];
 const OUT_DIR = "dist";
 const TEMPLATE = "cloudformation/hosting.yaml";
 const CODE_PLACEHOLDER = /^( *)FunctionCode: "\/\/ Replaced by build\.mjs.*"$/m;
@@ -124,11 +129,10 @@ async function main() {
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
 
-  for (const entry of readdirSync(SRC_DIR).filter((file) => file.endsWith(".ts"))) {
-    const name = entry.replace(/\.ts$/, "");
+  for (const handler of EDGE_HANDLERS) {
     await build({
-      entryPoints: [`${SRC_DIR}/${entry}`],
-      outfile: `${OUT_DIR}/${name}.mjs`,
+      entryPoints: [handler.entry],
+      outfile: `${OUT_DIR}/${handler.out}.mjs`,
       bundle: true,
       platform: "node",
       target: "node24",
@@ -136,7 +140,7 @@ async function main() {
       minify: true,
       define: { EDGE_CONFIG: JSON.stringify(edgeConfig) },
     });
-    console.log(`Bundled ${OUT_DIR}/${name}.mjs`);
+    console.log(`Bundled ${OUT_DIR}/${handler.out}.mjs`);
   }
 
   const gateCode = await bundleGateFunction(gateConfig);

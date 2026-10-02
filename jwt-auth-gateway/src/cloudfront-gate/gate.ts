@@ -1,7 +1,7 @@
 /**
  * The per-request gate, run as a CloudFront Function at viewer-request on every behaviour except
  * `/_auth/*`. Kept free of CloudFront Functions globals so it can be unit tested in Node. The
- * thin entry point is src/cloudfront/check-auth.ts.
+ * thin entry point is src/cloudfront-gate/index.ts.
  *
  * It runs at viewer-request because origin-request only fires on a cache miss. Content cached
  * for one signed-in user would otherwise be served to anyone. It runs as a CloudFront Function
@@ -17,9 +17,9 @@
  */
 import type { CloudFrontFunctionsEvent } from "aws-lambda";
 import type { GateConfig } from "../types/config.js";
-import { CLOCK_SKEW_SECONDS, COOKIE, SIGNIN_PATH } from "./constants.js";
-import { isApiPath, isNormalisedPath, isPageRequest, isPublicPath, resolveAppShell, stripApiPrefix } from "./routing.js";
-import { isStamped, tokenExpiry, type HmacFactory } from "./session.js";
+import { CLOCK_SKEW_SECONDS, COOKIE, SIGNIN_PATH } from "../lib/constants.js";
+import { isApiPath, isNormalisedPath, isPageRequest, isPublicPath, resolveAppShell, stripApiPrefix } from "../lib/routing.js";
+import { isStamped, tokenExpiry, type HmacFactory } from "../lib/session.js";
 
 export type GateRequest = CloudFrontFunctionsEvent["request"];
 export type GateResponse = NonNullable<CloudFrontFunctionsEvent["response"]>;

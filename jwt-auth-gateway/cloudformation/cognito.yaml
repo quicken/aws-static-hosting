@@ -65,7 +65,7 @@ Resources:
       ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
       EnableTokenRevocation: true
       PreventUserExistenceErrors: ENABLED
-      # Keep RefreshTokenValidity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/config.ts.
+      # Keep RefreshTokenValidity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/constants.ts.
       IdTokenValidity: 60
       AccessTokenValidity: 60
       RefreshTokenValidity: 30

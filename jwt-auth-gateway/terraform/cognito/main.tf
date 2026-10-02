@@ -73,7 +73,7 @@ resource "aws_cognito_user_pool_client" "this" {
   enable_token_revocation              = true
   prevent_user_existence_errors        = "ENABLED"
 
-  # Keep refresh_token_validity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/config.ts.
+  # Keep refresh_token_validity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/constants.ts.
   id_token_validity      = 60
   access_token_validity  = 60
   refresh_token_validity = 30

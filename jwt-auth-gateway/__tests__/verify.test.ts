@@ -4,7 +4,7 @@ import { signToken, stubCognito, ISSUER } from './helpers.js';
 /** Fresh module per test so the per-container JWKS cache and fetch throttle start empty. */
 async function loadVerify() {
   vi.resetModules();
-  return import('../src/lib/verify.js');
+  return import('../src/edge-auth/verify.js');
 }
 
 describe('verifyIdToken', () => {

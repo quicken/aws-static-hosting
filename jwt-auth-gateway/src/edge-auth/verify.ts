@@ -10,7 +10,7 @@
 import { createPublicKey, createVerify, type KeyObject } from "node:crypto";
 import type { Jwk, Jwks } from "../types/config.js";
 import { config, issuer } from "./config.js";
-import { CLOCK_SKEW_SECONDS } from "./constants.js";
+import { CLOCK_SKEW_SECONDS } from "../lib/constants.js";
 
 export interface IdTokenClaims {
   sub: string;

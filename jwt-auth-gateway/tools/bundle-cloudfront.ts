@@ -1,5 +1,5 @@
 /**
- * Bundles the gate (src/cloudfront/check-auth.ts) into CloudFront Functions source code.
+ * Bundles the gate (src/cloudfront-gate/index.ts) into CloudFront Functions source code.
  *
  * The CloudFront Functions runtime is not Node: it has no module syntax, wants a top-level
  * `function handler(event)`, loads `crypto` with `require`, supports only part of ES2015+, and
@@ -16,7 +16,7 @@ export const MAX_FUNCTION_BYTES = 10 * 1024;
 
 export async function bundleGateFunction(config: GateConfig): Promise<string> {
   const result = await build({
-    entryPoints: ["src/cloudfront/check-auth.ts"],
+    entryPoints: ["src/cloudfront-gate/index.ts"],
     bundle: true,
     write: false,
     format: "esm",
