@@ -9,7 +9,7 @@
   "engineStrict": true,
   "main": "src/lambda_edge_static_site.ts",
   "repository": "git@github.com:quicken/aws-static-hosting.git",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "dependencies": {},
   "devDependencies": {
     "@aws-sdk/types": "^3.37.0",
