@@ -1,5 +1,5 @@
 # Demo hosting for the jwt-auth-gateway: a private S3 bucket behind CloudFront, gated by the
-# CloudFront Function, with Lambda@Edge serving /_auth/*. Mirrors cloudformation/hosting.yaml,
+# CloudFront Function, with Lambda@Edge serving /_auth/*. Mirrors ../cloudformation/hosting.yaml,
 # which stays the reference; see its header for the reasoning behind the behaviours.
 #
 # The functions are built by build.mjs before this runs, and read from dist/. The gate's code
@@ -29,6 +29,9 @@ locals {
   custom_domain = var.domain_name != ""
   has_api       = var.api_origin_domain != ""
   site_host     = local.custom_domain ? var.domain_name : aws_cloudfront_distribution.this.domain_name
+  # Static behaviours (default + /public/*) cache hard when caching is on, and bypass the cache for
+  # development when it is off. /_auth/* and the API are never cached regardless.
+  static_cache_policy_id = var.cache_enabled ? data.aws_cloudfront_cache_policy.caching_optimized.id : data.aws_cloudfront_cache_policy.caching_disabled.id
 }
 
 data "aws_cloudfront_cache_policy" "caching_optimized" {
@@ -160,6 +163,11 @@ resource "aws_cloudfront_distribution" "this" {
   price_class     = var.price_class
   aliases         = local.custom_domain ? [var.domain_name] : []
 
+  # Maps "/" to "/index.html" at the CloudFront level (S3 behind OAC has no directory index of its
+  # own). Only the distribution root — subfolder indexes under /app are resolved by the gate's
+  # deep-link rewrite instead.
+  default_root_object = "index.html"
+
   origin {
     origin_id                = "s3"
     domain_name              = aws_s3_bucket.origin.bucket_regional_domain_name
@@ -180,20 +188,37 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
-  # Static app content. Cached, because the gate runs at viewer-request on every request, cache
-  # hits included. Everything served here must be identical for every signed-in user.
+  # Static app content. Cached (CachingOptimized) by default, because the gate runs at
+  # viewer-request on every request, cache hits included. Everything served here must be identical
+  # for every signed-in user. var.cache_enabled flips this to CachingDisabled for development.
   default_cache_behavior {
     target_origin_id       = "s3"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
     compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+    cache_policy_id        = local.static_cache_policy_id
 
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.check_auth.arn
     }
+  }
+
+  # Truly-public static assets (CSS, images, JS). NO function association at all: the gate never
+  # runs here, so these are served to anyone at zero per-request cost — the same "no function on
+  # this path" idea as the API behaviour, but for public files. Cached hard when caching is on;
+  # var.cache_enabled flips it to CachingDisabled for development. Only HTML PAGES need the gate
+  # (auth + deep-link rewrite); assets never do, so they live here and pages live under the
+  # default/app behaviour. Put nothing private under /public/*.
+  ordered_cache_behavior {
+    path_pattern           = "/public/*"
+    target_origin_id       = "s3"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = local.static_cache_policy_id
   }
 
   # Auth endpoints answer from the edge and never reach S3. Never cached: every response sets or

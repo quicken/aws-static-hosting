@@ -53,3 +53,9 @@ variable "price_class" {
     error_message = "PriceClass_100, PriceClass_200 or PriceClass_All."
   }
 }
+
+variable "cache_enabled" {
+  type        = bool
+  description = "Caching for the static behaviours (default + /public/*). Set false during development or troubleshooting so every request hits S3 and content updates show up without an invalidation. The /_auth/* and API behaviours are never cached regardless."
+  default     = true
+}

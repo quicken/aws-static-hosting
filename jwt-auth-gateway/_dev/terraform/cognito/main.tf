@@ -1,5 +1,5 @@
 # Demo Cognito user pool for the jwt-auth-gateway: a pool, a hosted UI domain and a public
-# (PKCE, no secret) app client. Mirrors cloudformation/cognito.yaml, which stays the reference.
+# (PKCE, no secret) app client. Mirrors ../cloudformation/cognito.yaml, which stays the reference.
 # Unlike that template, nothing here is retained: this is a rig to spin up and tear down.
 
 terraform {
@@ -55,6 +55,9 @@ resource "aws_cognito_user_pool" "this" {
 resource "aws_cognito_user_pool_domain" "this" {
   user_pool_id = aws_cognito_user_pool.this.id
   domain       = "${var.name}-${random_string.domain_suffix.result}"
+  # Version 2 is the newer Managed Login (branding designer); the branding resource below supplies
+  # the style it renders. Version 1 is the classic hosted UI.
+  managed_login_version = 2
 }
 
 # Public client: no secret, authorisation code grant only. The gateway always sends a PKCE
@@ -73,9 +76,12 @@ resource "aws_cognito_user_pool_client" "this" {
   enable_token_revocation              = true
   prevent_user_existence_errors        = "ENABLED"
 
-  # Keep refresh_token_validity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/constants.ts.
-  id_token_validity      = 60
-  access_token_validity  = 60
+  # id/access deliberately short (5 min, Cognito's floor): the gate forwards the id-token as the
+  # API Bearer and its refresh flow silently mints a new one, so a short token caps the blast
+  # radius of a leak with no visible churn. Refresh is the real session length — keep
+  # refresh_token_validity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/constants.ts.
+  id_token_validity      = 5
+  access_token_validity  = 5
   refresh_token_validity = 30
 
   token_validity_units {
@@ -83,4 +89,12 @@ resource "aws_cognito_user_pool_client" "this" {
     access_token  = "minutes"
     refresh_token = "days"
   }
+}
+
+# Applies Cognito's default polished Managed Login theme without designing anything; edit later in
+# the branding editor. With use_cognito_provided_values the settings/assets must be omitted.
+resource "aws_cognito_managed_login_branding" "this" {
+  user_pool_id                = aws_cognito_user_pool.this.id
+  client_id                   = aws_cognito_user_pool_client.this.id
+  use_cognito_provided_values = true
 }

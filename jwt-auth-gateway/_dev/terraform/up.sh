@@ -24,6 +24,7 @@ hosting_vars=(
   -var "certificate_arn=${CERTIFICATE_ARN:-}"
   -var "api_origin_domain=${API_ORIGIN_DOMAIN:-}"
   -var "api_prefix=$API_PREFIX"
+  -var "cache_enabled=${CACHE_ENABLED:-true}"
 )
 
 tf cognito init -input=false >/dev/null

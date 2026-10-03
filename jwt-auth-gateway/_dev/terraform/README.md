@@ -41,6 +41,7 @@ hosting side.
 | `SITE_DIR`, `SITE_PREFIX` | | Built site to sync into the bucket, and the key prefix to put it under |
 | `DEMO_EMAIL` | | User to create |
 | `APP_BASE_PATH`, `PUBLIC_PATHS`, `API_ORIGIN_DOMAIN`, `API_PREFIX` | as in `.env.example` | Baked into the functions |
+| `CACHE_ENABLED` | `true` | Set `false` to bypass the cache on the static behaviours (default + `/public/*`) while developing; `/_auth/*` and the API are never cached |
 
 The Trailhead Web Awesome example builds for `/sample/trailhead/webawesome` by default, so put it
 there:
