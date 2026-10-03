@@ -4,7 +4,7 @@ Puts a Cognito login in front of static single page apps hosted on S3 and CloudF
 
 - The whole login happens at the edge: OAuth authorisation code flow with PKCE against a **public** Cognito client. There is no OAuth client secret.
 - Tokens live in `HttpOnly; Secure` cookies. No JavaScript in any hosted app can read them.
-- The id-token expires hourly, but a page load refreshes it silently. API calls get a `401` and can refresh with one `POST`.
+- The id-token expires after 5 minutes, but a page load refreshes it silently. API calls get a `401` and can refresh with one `POST`.
 - Deep links like `/customers/42/orders` serve `/customers/index.html`, so each app's client-side router works.
 - An optional same-origin `/api/*` proxy turns the session cookie into an `Authorization: Bearer` header for an API Gateway JWT authoriser. There is no CORS to deal with, and cross-site requests are refused.
 - The check on every request is a **CloudFront Function**: sub-millisecond, at every edge location, no cold starts, about a sixth of Lambda@Edge's price per request. Lambda@Edge only runs for sign-in, refresh and sign-out.
@@ -16,6 +16,7 @@ Puts a Cognito login in front of static single page apps hosted on S3 and CloudF
 Browser ──► CloudFront
              ├─ /_auth/*    auth-routes  Lambda@Edge          sign-in, callback, refresh, sign-out
              ├─ /api/*      check-auth   CloudFront Function  cookie → Bearer, or 401/403  ──► API origin
+             ├─ /public/*   (no function)                     public static assets          ──► S3 (cached)
              └─ everything  check-auth   CloudFront Function  login gate + deep links      ──► S3 (cached)
 ```
 
@@ -25,10 +26,13 @@ Browser ──► CloudFront
 | Asset (`app.js`, `shell.json`, …) | Served as-is | `401` |
 | `/api/*` from the site itself | Proxied with `Authorization: Bearer <id-token>` | `401` |
 | `/api/*` from anywhere else | `403` | `403` |
-| `PUBLIC_PATHS` (default `/public`) | Served | Served |
+| `/public/*` (own behaviour, no gate) | Served | Served |
+| `PUBLIC_PATHS` (expected `/`) | Served | Served |
 | A path CloudFront would normalise (`//x`, `/a/../b`, `%2e`, `\`) | `400` | `400` |
 
 `/_auth/signin` first tries the refresh token and sends the user straight back. Only when that fails does it start the PKCE login with the Cognito hosted UI.
+
+`/public/*` is served from its **own CloudFront behaviour with no function attached** — truly-public static assets (CSS, images, JS) at zero per-request cost, the gate never runs. Put only public, non-secret files there; HTML pages belong under the gated default/`/app` behaviour so they get the login check and deep-link rewrite. The site root (`/`) is mapped to `/index.html` by the distribution's `DefaultRootObject` (CloudFront has no directory index of its own for an S3-behind-OAC origin); subfolder indexes under `/app` come from the gate's deep-link rewrite instead.
 
 Both functions run at **viewer-request**, which fires on every request, cache hits included. Content cached for one signed-in user is therefore never served to someone who isn't signed in. Because the deep-link rewrite also happens there, every deep link into an app shares one cached copy of that app's `index.html`.
 
@@ -142,28 +146,30 @@ npm run build       # needs .env; SKIP_JWKS_BAKE=1 skips the signing key fetch
 Source layout:
 
 ```
-src/cloudfront/check-auth.ts  CloudFront Function entry for the gate
-src/aws/auth-routes.ts        Lambda@Edge /_auth/* endpoints
-src/lib/gate.ts               the gate's logic (runs in the CloudFront Functions runtime)
-src/lib/                      routing, session stamp, cookies, JWT verification, OAuth/PKCE, responses
+src/cloudfront-gate/index.ts  CloudFront Function entry for the gate
+src/cloudfront-gate/gate.ts   the gate's logic (runs in the CloudFront Functions runtime)
+src/edge-auth/index.ts        Lambda@Edge /_auth/* endpoints (OAuth/PKCE, callback, refresh)
+src/lib/                      shared code: routing, session stamp, constants
+src/types/config.ts           build-time configuration shape
 tools/bundle-cloudfront.ts    bundles the gate into CloudFront Functions code
-src/types/config.ts      build-time configuration shape
-_dev/cloudformation/     hosting.yaml (us-east-1), cognito.yaml (optional, any region)
-_dev/terraform/          OpenTofu demo rig: up.sh / down.sh
-_dev/scripts/            provision.sh (stack, once), deploy-code.sh (function code, per change)
+_dev/cloudformation/          hosting.yaml (us-east-1), cognito.yaml (optional, any region)
+_dev/terraform/               OpenTofu demo rig: up.sh / down.sh
+_dev/scripts/                 provision.sh (stack, once), deploy-code.sh (function code, per change)
 ```
 
 ## Rotating the session key
 
 1. Move the current `SESSION_KEY` to `SESSION_KEY_PREVIOUS`.
 2. Generate a new `SESSION_KEY`, then `npm run deploy`. The gate accepts both keys, so nobody is signed out while the edge replicas catch up.
-3. On a later deploy (after an hour, when every stamp made with the old key has expired), clear `SESSION_KEY_PREVIOUS`.
+3. On a later deploy (once every stamp made with the old key has expired — stamps track the id-token's 5-minute lifetime), clear `SESSION_KEY_PREVIOUS`.
 
 Don't change `SESSION_KEY` without step 1. The CloudFront Function updates faster than the Lambda@Edge replicas, so for a few minutes after the deploy they would disagree about the key.
 
 ## Things to know
 
 - **Configuration is baked in.** Neither function type has environment variables. Changing `.env` means rebuilding and redeploying.
+- **Re-run `deploy-code.sh` after any `provision.sh`.** The stack doesn't own the `/_auth/*` Lambda@Edge association (it's attached out-of-band), so re-provisioning drops it and `/_auth/*` 403s until the next code deploy. See the runbook.
+- **Caching is togglable for dev.** The hosting stack's `CacheEnabled` parameter (`true`/`false`, default `true`) flips the default and `/public/*` behaviours between `CachingOptimized` and `CachingDisabled`, so edits show up without an invalidation while troubleshooting. `/_auth/*` and the API are never cached regardless.
 - **Code for the gate must suit the CloudFront Functions runtime.** Anything `src/lib/gate.ts` imports avoids destructuring, spread, default parameters, for-of and classes. The bundle test runs the real bundle in a sandbox that offers only what that runtime does, and fails on unsupported syntax.
 - **Signing key rotation.** When Cognito rotates its signing keys, the functions fetch the new ones on first sight, at most once every 5 minutes per container. Redeploying bakes them in again.
 - **Deleting the stack.** CloudFormation can't delete Lambda@Edge functions until CloudFront has removed their replicas, which can take hours. If the delete fails, wait and retry. The S3 bucket, the Cognito pool and old function versions are retained on purpose.

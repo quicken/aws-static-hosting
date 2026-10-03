@@ -81,6 +81,8 @@ Fill in:
 - the four `COGNITO_*` values from step 1,
 - `SESSION_KEY` from step 2 (leave `SESSION_KEY_PREVIOUS` empty),
 - `STACK_NAME` (e.g. `saas-hosting`),
+- `PUBLIC_PATHS=/` so the root landing page is served without a login (the `/public/*` assets
+  path is handled by its own CloudFront behaviour, not by this value),
 - optionally `AWS_PROFILE` (unset = default profile).
 
 Leave `DOMAIN_NAME`, `CERTIFICATE_ARN` and `API_ORIGIN_DOMAIN` empty for a first deploy. The
@@ -107,6 +109,13 @@ bootstrap stubs). It prints the stack outputs — note `DistributionDomainName`,
 > **`/_auth/*` returns 403 now, and that is correct.** The Lambda has only a stub and no
 > distribution association until the first `deploy-code.sh` run attaches it.
 
+> **Dev-only: disable caching while troubleshooting.** The hosting stack takes a `CacheEnabled`
+> parameter (`true`/`false`, default `true`) that toggles caching on the default and `/public/*`
+> behaviours, so edits show up immediately without an invalidation. To turn it off, pass it on the
+> provision call: `aws cloudformation deploy ... --parameter-overrides CacheEnabled=false` (or add
+> `CacheEnabled` to `provision.sh`'s overrides). The `/_auth/*` and API behaviours are never cached
+> regardless.
+
 ---
 
 ## 5. Deploy the function code
@@ -118,6 +127,14 @@ _dev/scripts/deploy-code.sh
 Builds the bundles (baking in the Cognito config + the pool's JWKS), updates the CloudFront
 Function gate in place, publishes a new Lambda@Edge version, and repoints the distribution's
 `/_auth/*` behaviour at it. Re-run this for every code change — it never touches the stack.
+
+> **Re-run `deploy-code.sh` after EVERY `provision.sh` — not just the first.** The hosting stack
+> deliberately does not own the `/_auth/*` Lambda@Edge association (`deploy-code.sh` attaches it
+> out-of-band via the AWS API, to keep the versioned-ARN churn out of the stack). So any
+> `provision.sh` run — including one you do later to apply a stack change like `/public/*` or
+> `CacheEnabled` — resets the distribution to the template and **drops that association again**,
+> and `/_auth/*` goes back to returning 403 until you re-run `deploy-code.sh`. If sign-in suddenly
+> 403s after a re-provision, this is why.
 
 > The CloudFront Function is live within minutes; the Lambda@Edge replicas take **5–15 minutes**
 > to propagate globally. Both are normal.

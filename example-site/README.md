@@ -36,7 +36,7 @@ apps under `/app/`). `<BucketName>` is the hosting stack's `BucketName` output.
 - **`/` — the landing page**, made public by the gate via `PUBLIC_PATHS=/`.
 
 For the jwt-auth-gateway scenario, pair this with its verification runbook:
-[`jwt-auth-gateway/_docs/VERIFICATION.md`](../../jwt-auth-gateway/_docs/VERIFICATION.md).
+[`jwt-auth-gateway/_docs/VERIFICATION.md`](../jwt-auth-gateway/_docs/VERIFICATION.md).
 
 ## Layout
 

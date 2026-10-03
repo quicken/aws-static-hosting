@@ -29,6 +29,11 @@ first.
 > `deploy-code.sh` — `deploy-code.sh` alone won't apply it. Also set `PUBLIC_PATHS=/` in your
 > live `.env`.
 
+> **After ANY `provision.sh`, re-run `deploy-code.sh` — or `/_auth/*` returns 403.** The stack
+> does not own the `/_auth/*` Lambda@Edge association (`deploy-code.sh` attaches it out-of-band),
+> so every re-provision resets the distribution and drops it. This is the most common cause of a
+> working site suddenly 403-ing sign-in after an infra change.
+
 From the **`example-site/`** directory:
 
 ```bash
@@ -38,7 +43,7 @@ _dev/scripts/deploy-site.sh <BucketName>
 
 `<BucketName>` is the hosting stack's `BucketName` output. The script syncs `src/` to the bucket
 root, so `/` is the landing page and the apps live under `/app/`. See
-[`../../example-site/src/README.md`](../../example-site/src/README.md) for the path-to-scenario map.
+[`../../example-site/README.md`](../../example-site/README.md) for the path-to-scenario map.
 
 ---
 
@@ -186,7 +191,7 @@ Gateway JWT authorizer then validates the token for real.
 | `/app` returns 200 for anonymous | Gate not attached | default behaviour's `FunctionAssociations` |
 | `/` returns 403 for anonymous | `DefaultRootObject` missing | re-run `provision.sh`; `DefaultRootObject: index.html` on the distribution |
 | Everything returns 403 | S3/OAC or stub still live | OAC policy; did `deploy-code.sh` run? |
-| `/_auth/*` returns 403 | Lambda@Edge not associated/propagated | wait 5–15 min, re-run `deploy-code.sh` |
+| `/_auth/*` returns 403 | Lambda@Edge not associated/propagated | ran `provision.sh` without a following `deploy-code.sh`? wait 5–15 min, re-run `deploy-code.sh` |
 | `/_auth/*` returns 503 | bootstrap stub still live | `deploy-code.sh` didn't push code |
 | Cognito "redirect_uri mismatch" | Callback not flipped | runbook step 6; app client callback URL |
 | Blank login page | Managed Login branding | `ManagedLoginBranding` in the Cognito stack |

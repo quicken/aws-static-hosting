@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What This Is
 
-Static hosting for single page apps on S3 + CloudFront, gated at the edge by Lambda@Edge. The main project, `jwt-auth-gateway`, is designed to host a [Trailhead](../trailhead) shell and its apps.
+Static hosting for single page apps on S3 + CloudFront, gated at the edge by a CloudFront Function (Lambda@Edge serves only `/_auth/*`). The main project, `jwt-auth-gateway`, is designed to host a [Trailhead](../trailhead) shell and its apps.
 
 No root `package.json`. Each folder is independent with its own `npm install`.
 
@@ -63,5 +63,6 @@ Don't suggest approaches that work around these:
 - **Never log tokens or cookie values.** Log verification *reasons* only.
 - **Every redirect target taken from a request goes through `safeReturnPath`.**
 - **`SESSION_KEY` is a secret.** Never commit `dist/` (the generated template embeds it) or `.env`.
-- **Infrastructure is CloudFormation** (`jwt-auth-gateway/cloudformation/`). No CI/CD pipelines in this repo.
-- **`jwt-auth-gateway/terraform/` is a disposable OpenTofu demo rig**, not a second source of truth. Change the CloudFormation templates first, then mirror the change there. It needs OpenTofu: its state holds the session key (inside the gate's code), and `env.sh` enforces state encryption through `TF_ENCRYPTION`.
+- **Infrastructure is CloudFormation** (`jwt-auth-gateway/_dev/cloudformation/`). No CI/CD pipelines in this repo.
+- **After any `provision.sh`, re-run `deploy-code.sh`.** The hosting stack doesn't own the `/_auth/*` Lambda@Edge association (`deploy-code.sh` attaches it out-of-band), so re-provisioning drops it and `/_auth/*` 403s until the next code deploy.
+- **`jwt-auth-gateway/_dev/terraform/` is a disposable OpenTofu demo rig**, not a second source of truth. Change the CloudFormation templates first, then mirror the change there. It needs OpenTofu: its state holds the session key (inside the gate's code), and `env.sh` enforces state encryption through `TF_ENCRYPTION`.
