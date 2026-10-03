@@ -64,54 +64,16 @@ Because the gate turns the session cookie into a Bearer token, `/api/*` only acc
 
 ## Deploy
 
-Just want to try it? [`_dev/terraform/`](_dev/terraform/README.md) spins up a pool, the hosting and a demo user with one command (`./up.sh`), and tears it all down again. The steps below are the reference deployment.
+Just want to try it? [`_dev/terraform/`](_dev/terraform/README.md) spins up a pool, the hosting and a demo user with one command (`./up.sh`), and tears it all down again.
 
-Prerequisites: Node.js 24+ and the AWS CLI.
+For a real, step-by-step deployment, follow the runbook: **[`_docs/DEPLOYMENT.md`](_docs/DEPLOYMENT.md)**. It covers the full sequence start to finish — provision Cognito, generate the session key, fill `.env`, provision the hosting stack once (`_dev/scripts/provision.sh`), roll out the function code (`_dev/scripts/deploy-code.sh`), flip the Cognito callback to the real host, upload the apps and create a sign-in user — with the ordering gotchas called out. The two-stack / two-script split means the hosting stack is provisioned once and code deploys never touch it.
 
-### 1. Cognito
+### A note on uploading apps
 
-Skip this step if you already have a user pool. Otherwise:
-
-```bash
-aws cloudformation deploy \
-  --region ap-southeast-2 \
-  --stack-name static-hosting-auth \
-  --template-file _dev/cloudformation/cognito.yaml \
-  --parameter-overrides DomainPrefix=my-apps-login SiteHost=apps.example.com
-```
-
-`SiteHost` is the host your apps are served from. Without a custom domain you don't know it yet: put a placeholder, deploy the hosting stack, then re-run this command with its `DistributionDomainName` output. The Cognito values are baked into the build, but the host is not, so this needs no rebuild.
-
-If you bring your own pool, the app client must be a public client (no secret) with the authorisation code grant, the `openid email profile` scopes, callback URL `https://<host>/_auth/callback`, and sign-out URL `https://<host>/`.
-
-### 2. Configure
+The runbook uploads your built site under `app/` (to match `APP_BASE_PATH=/app`) with `--cache-control no-cache`:
 
 ```bash
-cp .env.example .env
-```
-
-Fill in the Cognito outputs, `STACK_NAME` and `DEPLOY_BUCKET`, and generate a `SESSION_KEY` with `openssl rand -base64 32`. Optionally set `DOMAIN_NAME`/`CERTIFICATE_ARN` and `API_ORIGIN_DOMAIN`. Every setting is documented in [.env.example](.env.example).
-
-### 3. Deploy the hosting stack
-
-```bash
-npm install
-npm run deploy
-```
-
-`deploy.sh` does the following:
-
-1. builds `auth-routes` (baking in the configuration and the pool's public signing keys) and the CloudFront Function gate
-2. writes `dist/hosting.yaml` with the gate's code embedded, since CloudFormation takes CloudFront Function code inline
-3. zips `auth-routes`, then runs `aws cloudformation package` and `aws cloudformation deploy` against us-east-1
-4. prints the stack outputs
-
-The CloudFront Function updates within minutes. Each deploy also publishes a new `auth-routes` version; allow 5–15 minutes for its edge replicas.
-
-### 4. Upload your apps
-
-```bash
-aws s3 sync ./site s3://<BucketName>/ --delete --cache-control "no-cache"
+aws s3 sync ./site/dist s3://<BucketName>/app --delete --cache-control "no-cache"
 ```
 
 With `no-cache`, CloudFront holds each file for the cache policy's 1-second minimum and then revalidates with S3 (cheap `304`s), so a release is live almost immediately. That matters for Trailhead, whose `index.html`, `shell.json` and `app.js` keep the same names across releases. If you prefer long TTLs, invalidate after each upload instead.

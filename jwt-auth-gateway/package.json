@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && node build.mjs",
     "test": "vitest",
-    "deploy": "./deploy.sh"
+    "provision": "./_dev/scripts/provision.sh",
+    "deploy-code": "./_dev/scripts/deploy-code.sh"
   },
   "author": "Marcel Scherzer",
   "license": "MIT",
