@@ -22,5 +22,13 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.ts"],
+      // Type-only declarations and the thin runtime entry points carry no logic worth asserting:
+      // index.ts just wires the handler to the baked-in config, types/ is interfaces only.
+      exclude: ["src/types/**", "src/**/index.ts"],
+    },
   },
 });
