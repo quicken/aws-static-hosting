@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HerdingBits — example site</title>
-  <link rel="icon" href="/assets/favicon.png">
-  <link rel="stylesheet" href="/assets/site.css">
+  <link rel="icon" href="/public/assets/favicon.png">
+  <link rel="stylesheet" href="/public/assets/site.css">
 </head>
 <body>
   <div class="wrap">
     <header class="hb">
-      <img src="/assets/favicon.png" alt="HerdingBits">
+      <img src="/public/assets/favicon.png" alt="HerdingBits">
       <span class="brand">Herding<span>Bits</span></span>
     </header>
 
@@ -20,15 +20,17 @@
     then click through — Feebee will show you around.</p>
 
     <div class="card">
-      <div class="tag">General hosting · public</div>
-      <p><strong>This page.</strong> Served from the bucket root with no login — the public front
-      of the trail.</p>
+      <div class="tag">General hosting · public landing</div>
+      <p><strong>This page.</strong> Served from the bucket root at <code>/</code> with no login —
+      the gate makes <code>/</code> public (<code>PUBLIC_PATHS=/</code>), the public front of the trail.</p>
     </div>
 
     <div class="card">
-      <div class="tag">Public path · no login</div>
-      <p><a href="/public/">/public/</a> — reachable with no session at all, because it sits under
-      <code>PUBLIC_PATHS</code> (default <code>/public</code>).</p>
+      <div class="tag">Public assets · no gate at all</div>
+      <p>The CSS and logo on this page load from <a href="/public/assets/site.css">/public/assets/</a>.
+      That path has its <em>own</em> CloudFront behaviour with <strong>no function attached</strong> —
+      truly public static files, served to anyone at zero per-request cost. The gate never runs there.
+      Put public assets under <code>/public/</code>; put pages under <code>/app</code>.</p>
     </div>
 
     <div class="card">

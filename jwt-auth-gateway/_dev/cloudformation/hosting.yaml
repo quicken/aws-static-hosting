@@ -194,6 +194,10 @@ Resources:
       DistributionConfig:
         Enabled: true
         Comment: !Sub ${AWS::StackName} - static apps behind a Cognito login at the edge
+        # Maps a request for "/" to "/index.html" at the CloudFront level (S3 behind OAC has no
+        # directory index of its own). Only the distribution root — subfolder indexes under /app
+        # are resolved by the gate's deep-link rewrite instead.
+        DefaultRootObject: index.html
         HttpVersion: http2and3
         IPV6Enabled: true
         PriceClass: !Ref PriceClass
@@ -236,6 +240,20 @@ Resources:
               FunctionARN: !GetAtt CheckAuthFunction.FunctionARN
 
         CacheBehaviors:
+          # Truly-public static assets (CSS, images, JS). NO function association at all: the gate
+          # never runs here, so these are served to anyone with zero per-request cost — the same
+          # "no Lambda on this path" idea as the API behaviour, but for public files. Cached hard
+          # (CachingOptimized), because public assets are identical for every viewer. Only HTML
+          # PAGES need the gate (auth + deep-link rewrite); assets never do, so they live here and
+          # pages live under the default/app behaviour. Put nothing private under /public/*.
+          - PathPattern: /public/*
+            TargetOriginId: s3
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: !FindInMap [Policies, Cache, CachingOptimized]
+
           # Auth endpoints answer from the edge and never reach S3. Never cached: every response
           # sets or clears cookies. POST is allowed for /_auth/refresh.
           #

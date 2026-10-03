@@ -65,12 +65,13 @@ curl -sI "$SITE/app/does-not-exist.js" | head -1
 # Malformed / non-normalised path -> 400 before any other decision
 curl -sI "$SITE//app" | head -1
 
-# A public path (PUBLIC_PATHS, default /public) -> served, no redirect
-curl -sI "$SITE/public/" | head -1
+# A public asset under /public/* (its own function-free behaviour) -> served, no gate
+curl -sI "$SITE/public/assets/site.css" | head -1
 ```
 
-**Expect**, in order: `302` (+ `location: /_auth/signin?...`), `401`, `400`, and `/public/`
-returning `200` (served without a login).
+**Expect**, in order: `302` (+ `location: /_auth/signin?...`), `401`, `400`, and the
+`/public/assets/site.css` returning `200` (served with no login — the gate never runs on
+`/public/*`, it has its own behaviour).
 
 Why these differ: a page load should bounce a human to sign-in, but an asset (`.js`, `.css`)
 must *fail* rather than redirect — returning the sign-in HTML in place of a script would wedge the
