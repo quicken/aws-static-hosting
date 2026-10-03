@@ -145,3 +145,11 @@ bin/
 *.tfstate
 *.tfstate.*
 *.tfplan
+
+# Kiro editor/agent tooling.
+# Ignore local, per-machine state (settings/cli.json, lock files) …
+.kiro/*
+# … but DO commit project-shared config: steering docs, hooks, specs.
+!.kiro/steering/
+!.kiro/hooks/
+!.kiro/specs/
