@@ -24,17 +24,29 @@ import { isStamped, tokenExpiry, type HmacFactory } from "../lib/session.js";
 export type GateRequest = CloudFrontFunctionsEvent["request"];
 export type GateResponse = NonNullable<CloudFrontFunctionsEvent["response"]>;
 
+/**
+ * A generated response the gate returns instead of letting the request reach S3. Always
+ * `no-store`: a gate decision is about this one viewer's session and must never be cached.
+ */
 function status(statusCode: number, statusDescription: string): GateResponse {
   return { statusCode, statusDescription, headers: { "cache-control": { value: "no-store" } }, cookies: {} };
 }
 
+/** A 302 the gate returns in place of the request, used to send a page load to the sign-in route. */
 function redirect(location: string): GateResponse {
   const response = status(302, "Found");
   response.headers.location = { value: location };
   return response;
 }
 
-/** Rebuilds the query string from CloudFront Functions' parsed form, keeping repeated keys. */
+/**
+ * Reassembles the raw query string so the sign-in redirect can carry the user back to the exact
+ * URL they asked for.
+ *
+ * A deep link like `/orders?tab=open&page=2` must survive the round trip through Cognito and come
+ * back intact, so the whole query string — repeated keys and all — has to be rebuilt from
+ * CloudFront Functions' parsed form and tucked into the `return` parameter.
+ */
 function queryString(querystring: GateRequest["querystring"]): string {
   const parts: string[] = [];
   Object.keys(querystring).forEach((name) => {
@@ -45,7 +57,19 @@ function queryString(querystring: GateRequest["querystring"]): string {
   return parts.join("&");
 }
 
-/** Returns the id-token when the request carries a stamped, unexpired session, otherwise null. */
+/**
+ * The gate's entire trust decision, and the reason this whole function can be a CloudFront
+ * Function at all.
+ *
+ * A CloudFront Function can compute an HMAC but can't verify an RSA signature, so it cannot
+ * check a Cognito id-token itself. It doesn't need to: auth-routes already verified the token in
+ * full (RS256, issuer, audience, expiry) and left an HMAC stamp over it, keyed with a secret only
+ * the edge functions hold. Matching that stamp means "the edge vouched for exactly this token" —
+ * cheap enough to run on every request. The stamp says nothing about time, though, so `exp` is
+ * re-checked here too; otherwise a stamped token would stay valid forever.
+ *
+ * @returns the id-token to trust downstream, or null when the session is absent, forged or expired
+ */
 function sessionToken(request: GateRequest, keys: string[], createHmac: HmacFactory): string | null {
   const token = request.cookies[COOKIE.idToken]?.value;
   const signature = request.cookies[COOKIE.idSignature]?.value;
@@ -75,6 +99,22 @@ function isSameOrigin(request: GateRequest): boolean {
   return safe;
 }
 
+/**
+ * The login gate, run on every request that isn't an `/_auth/*` route.
+ *
+ * This is the one place that decides, for a static origin with no auth of its own, whether a
+ * request may see private content — and it has to decide in under a millisecond with only an HMAC
+ * to work with. The order matters:
+ *
+ *  1. A non-normalised path is rejected outright. CloudFront picks the cache behaviour from the
+ *     normalised path but hands this function the raw one, so judging `//billing` as if it were
+ *     public and then serving it as `/billing` is a real confusion attack — refuse it first.
+ *  2. API requests become authenticated calls to the backend: the session cookie (never sent to
+ *     the origin) is swapped for an `Authorization: Bearer`, behind a same-origin check so another
+ *     site can't ride the user's cookies.
+ *  3. Everything else is the SPA: a valid session resolves a deep link to the app's index.html so
+ *     the client router can take over; no session sends a page load to sign-in and refuses assets.
+ */
 export function gate(request: GateRequest, config: GateConfig, createHmac: HmacFactory): GateRequest | GateResponse {
   const uri = request.uri;
   if (!isNormalisedPath(uri)) {
@@ -91,7 +131,8 @@ export function gate(request: GateRequest, config: GateConfig, createHmac: HmacF
     }
     request.uri = stripApiPrefix(uri, config.apiPrefix);
     request.headers.authorization = { value: `Bearer ${token}` };
-    // The API has no use for the browser's cookies, and the token shouldn't travel twice.
+    // The cookie IS the credential; the API gets a Bearer instead and must never also receive the
+    // session cookie, or the token would reach the backend by two paths.
     request.cookies = {};
     return request;
   }
