@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard SPA</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
+    nav a { margin-right: 1rem; color: #2563eb; }
+    #view { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1rem; }
+    code { background: color-mix(in srgb, currentColor 10%, transparent); padding: 0.1em 0.3em; border-radius: 4px; }
+    .path { opacity: 0.6; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard SPA</h1>
+  <p class="path">Served from <code>/app/dashboard/index.html</code> for every route beneath
+  <code>/app/dashboard</code> — the gate rewrites deep links to this one file.</p>
+
+  <nav>
+    <a href="/app/dashboard" data-link>Home</a>
+    <a href="/app/dashboard/reports/42" data-link>Report 42</a>
+    <a href="/app/dashboard/settings" data-link>Settings</a>
+  </nav>
+
+  <div id="view">Loading…</div>
+
+  <p class="path">Reload the page on any route (e.g. hit refresh on <code>/reports/42</code>): it
+  survives a full reload because the gate maps the deep link back to this <code>index.html</code>,
+  then this router reads the path and renders the view.</p>
+
+  <script>
+    // Minimal client-side router. The gate serves THIS file for any path under /app/dashboard,
+    // so on load (and on nav) we read location.pathname and render the matching view. This is the
+    // "advanced SPA" contract: deep links resolve to one index.html, the client takes it from there.
+    const BASE = "/app/dashboard";
+
+    function render() {
+      const rel = location.pathname.slice(BASE.length).replace(/^\/+/, "") || "home";
+      const view = document.getElementById("view");
+      const seg = rel.split("/");
+      if (seg[0] === "home" || rel === "") {
+        view.innerHTML = "<h2>Home</h2><p>The dashboard landing view.</p>";
+      } else if (seg[0] === "reports") {
+        const id = seg[1] ? ` #${seg[1]}` : "";
+        view.innerHTML = `<h2>Report${id}</h2><p>Deep-linked report view. Path segment read client-side: <code>${location.pathname}</code></p>`;
+      } else if (seg[0] === "settings") {
+        view.innerHTML = "<h2>Settings</h2><p>The settings view.</p>";
+      } else {
+        view.innerHTML = `<h2>Not found</h2><p>No client route for <code>${location.pathname}</code>.</p>`;
+      }
+    }
+
+    // Intercept same-app links so navigation is client-side (pushState), like a real SPA.
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest("a[data-link]");
+      if (!a) return;
+      e.preventDefault();
+      history.pushState(null, "", a.getAttribute("href"));
+      render();
+    });
+    window.addEventListener("popstate", render);
+    render();
+  </script>
+</body>
+</html>
