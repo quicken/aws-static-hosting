@@ -21,6 +21,15 @@ const REQUIRE_AUTHENTICATION = false;
  */
 const AUTH_CREDENTIALS = ["user1:secret_1", "user2:secret_2"];
 
+/**
+ * Lambda@Edge entry for the basic-auth static-site demo across all four CloudFront event types.
+ *
+ * On viewer-request it optionally challenges for HTTP Basic credentials (demo-only, controlled
+ * by `REQUIRE_AUTHENTICATION`) and rewrites directory-style URIs to the folder's `index.html`;
+ * all other event types pass the request through unchanged.
+ *
+ * @returns a 401 Basic-auth challenge, the (possibly URI-rewritten) request, or a 500 on error
+ */
 export const handler: CloudFrontRequestHandler = async (event: CloudFrontRequestEvent | CloudFrontResponseEvent) => {
 	try {
 		let response: CloudFrontRequestResult;

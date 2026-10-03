@@ -38,12 +38,14 @@ export interface Pkce {
 
 const hostedUi = `https://${config.hostedUiDomain}`;
 
+/** Generates a fresh PKCE verifier/challenge pair for one sign-in attempt. */
 export function createPkce(): Pkce {
   const verifier = randomBytes(48).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   return { verifier, challenge };
 }
 
+/** Mints the opaque CSRF `state` value echoed back through the Cognito round trip. */
 export function randomState(): string {
   return randomBytes(24).toString("base64url");
 }
@@ -57,6 +59,7 @@ export function redirectUri(host: string): string {
   return `https://${host}${CALLBACK_PATH}`;
 }
 
+/** Builds the Cognito hosted-UI authorisation URL that starts the PKCE login. */
 export function authorizeUrl(host: string, challenge: string, state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
@@ -70,6 +73,7 @@ export function authorizeUrl(host: string, challenge: string, state: string): st
   return `${hostedUi}/oauth2/authorize?${params}`;
 }
 
+/** Builds the Cognito hosted-UI logout URL that ends the pool-side session and returns to the site root. */
 export function logoutUrl(host: string): string {
   const params = new URLSearchParams({ client_id: config.clientId, logout_uri: `https://${host}/` });
   return `${hostedUi}/logout?${params}`;
@@ -128,11 +132,13 @@ function sign(payload: string): string {
   return createHmac("sha256", config.flowKey).update(payload).digest("base64url");
 }
 
+/** Encodes the sign-in flow state into one HMAC-signed cookie value for the Cognito round trip. */
 export function packFlowState(flow: FlowState): string {
   const payload = Buffer.from(JSON.stringify(flow)).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
+/** Decodes a flow-state cookie, returning `null` if its signature fails or the payload is unreadable. */
 export function unpackFlowState(raw: string | undefined): FlowState | null {
   const separator = raw?.lastIndexOf(".") ?? -1;
   if (!raw || separator === -1) {

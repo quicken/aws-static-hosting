@@ -14,6 +14,12 @@ import type { GateConfig } from "../src/types/config.ts";
 /** CloudFront Functions quota; not adjustable. */
 export const MAX_FUNCTION_BYTES = 10 * 1024;
 
+/**
+ * Compiles the gate into standalone CloudFront Functions source with `config` baked in.
+ *
+ * @returns runnable source: a top-level `function handler`, no module syntax, under 10 KB
+ * @throws when the output still has module syntax, lacks a `handler`, or exceeds the 10 KB quota
+ */
 export async function bundleGateFunction(config: GateConfig): Promise<string> {
   const result = await build({
     entryPoints: ["src/cloudfront-gate/index.ts"],

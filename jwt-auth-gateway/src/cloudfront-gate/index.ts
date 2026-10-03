@@ -12,6 +12,7 @@ import { gate } from "./gate.js";
 
 declare const GATE_CONFIG: GateConfig;
 
+/** CloudFront Functions viewer-request entry: gates the request against the baked-in config. */
 export function handler(event: CloudFrontFunctionsEvent) {
   return gate(event.request, GATE_CONFIG, crypto.createHmac);
 }

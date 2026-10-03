@@ -17,6 +17,7 @@ export type HmacFactory = (algorithm: "sha256", key: string) => {
   update(data: string): { digest(encoding: "base64url"): string };
 };
 
+/** Mints the HMAC stamp that proves the auth routes verified this exact id-token. */
 export function sessionSignature(createHmac: HmacFactory, key: string, idToken: string): string {
   return createHmac("sha256", key).update(idToken).digest("base64url");
 }

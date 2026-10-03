@@ -42,6 +42,7 @@ import { sessionSignature } from "../lib/session.js";
 import { verifyIdToken } from "./verify.js";
 import { jsonResponse, noContent, redirect, textResponse } from "./responses.js";
 
+/** Dispatches an `/_auth/*` request to its sign-in, callback, refresh or sign-out route. */
 export async function handler(event: CloudFrontRequestEvent): Promise<CloudFrontRequestResult> {
   const request = event.Records[0].cf.request;
   const host = request.headers.host?.[0]?.value;
