@@ -20,9 +20,6 @@ Description: >-
 # Control signing works without special handling.
 
 Parameters:
-  AuthRoutesCodeSha256:
-    Type: String
-    Description: Base64 SHA-256 of dist/auth-routes.zip. A new hash publishes a new function version.
   DomainName:
     Type: String
     Default: ""
@@ -117,10 +114,22 @@ Resources:
       # request for the bucket root can never return a listing of every key.
 
   # ---------------------------------------------------------------------------
-  # Edge functions. CloudFront needs a numbered version, never $LATEST. Changing the
-  # CodeSha256 parameter replaces the Version resource, which publishes a new version and
-  # repoints the distribution in the same update. Old versions are retained: their edge
-  # replicas can take hours to clear, and deleting them early fails.
+  # Edge functions — PROVISIONED here, CODE DEPLOYED by deploy-code.sh.
+  #
+  # This stack is deployed ONCE. It creates the function shells (roles, config) but does NOT
+  # own their code or the Lambda@Edge version association, because those change on every code
+  # deploy and we want the stack to stay untouched between provisions:
+  #
+  #   - CloudFront Function (gate): stable ARN; deploy-code.sh updates its code in place.
+  #   - Lambda@Edge (auth-routes): CloudFront needs a NUMBERED version ARN, which changes with
+  #     every publish. deploy-code.sh publishes the version AND repoints the distribution's
+  #     association via the AWS API. So the /_auth/* behaviour below ships with NO Lambda
+  #     association — the script attaches it. Until the first deploy-code.sh run, /_auth/* has
+  #     no handler and returns 403 from S3; that is expected on a freshly-provisioned stack.
+  #
+  # This is also the Terraform-friendly shape: the association lives outside the provisioning
+  # IaC (the `ignore_changes = [lambda_function_association]` pattern), so a port carries over
+  # without the versioned-ARN churn that forced a stack update per deploy.
   # ---------------------------------------------------------------------------
   EdgeFunctionRole:
     Type: AWS::IAM::Role
@@ -137,25 +146,22 @@ Resources:
 
   AuthRoutesFunction:
     Type: AWS::Lambda::Function
+    # Provisioned once with a bootstrap stub. deploy-code.sh pushes the real bundle with
+    # update-function-code, publishes a version, and associates it with the distribution.
+    # The stack never sees the real code or the version, so it does not change per deploy.
     Properties:
       Description: Viewer-request /_auth/* endpoints (sign-in, callback, refresh, sign-out).
       Runtime: nodejs24.x
       Handler: auth-routes.handler
-      Code: ../dist/auth-routes.zip
+      Code:
+        ZipFile: "export const handler = async () => ({ status: '503', statusDescription: 'Not deployed' });"
       Role: !GetAtt EdgeFunctionRole.Arn
       MemorySize: 128
       Timeout: 5
 
-  AuthRoutesVersion:
-    Type: AWS::Lambda::Version
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      FunctionName: !Ref AuthRoutesFunction
-      CodeSha256: !Ref AuthRoutesCodeSha256
-
-  # The per-request gate. Its code carries the session keys, so it lives only in the generated
-  # dist/hosting.yaml, never in this file or in source control.
+  # The per-request gate. deploy-code.sh updates its code in place (stable ARN, no stack churn).
+  # Provisioned with a minimal pass-through stub so the resource and its distribution
+  # association are valid before the first code deploy.
   CheckAuthFunction:
     Type: AWS::CloudFront::Function
     Properties:
@@ -164,7 +170,7 @@ Resources:
       FunctionConfig:
         Comment: Viewer-request login gate and deep-link rewrite.
         Runtime: cloudfront-js-2.0
-      FunctionCode: "// Replaced by build.mjs with dist/check-auth.cf.js"
+      FunctionCode: "function handler(event) { return event.request; }"
 
   # ---------------------------------------------------------------------------
   # Distribution
@@ -217,15 +223,17 @@ Resources:
         CacheBehaviors:
           # Auth endpoints answer from the edge and never reach S3. Never cached: every response
           # sets or clears cookies. POST is allowed for /_auth/refresh.
+          #
+          # NOTE: no LambdaFunctionAssociations here on purpose. deploy-code.sh attaches the
+          # auth-routes version (and repoints it on every deploy) via the AWS API, so this
+          # behaviour and its versioned-ARN churn stay out of the provisioning stack. Before the
+          # first deploy-code.sh run this path has no handler and returns 403 from S3.
           - PathPattern: /_auth/*
             TargetOriginId: s3
             ViewerProtocolPolicy: redirect-to-https
             AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
             CachedMethods: [GET, HEAD]
             CachePolicyId: !FindInMap [Policies, Cache, CachingDisabled]
-            LambdaFunctionAssociations:
-              - EventType: viewer-request
-                LambdaFunctionARN: !Ref AuthRoutesVersion
 
           # Same-origin API: no CORS. Never cached, because responses are per-user.
           - !If
@@ -248,6 +256,12 @@ Outputs:
     Value: !Ref OriginBucket
   DistributionId:
     Value: !Ref Distribution
+  AuthRoutesFunctionName:
+    Description: Lambda@Edge function deploy-code.sh pushes code to and versions.
+    Value: !Ref AuthRoutesFunction
+  CheckAuthFunctionName:
+    Description: CloudFront Function deploy-code.sh updates in place.
+    Value: !Sub ${AWS::StackName}-check-auth
   DistributionDomainName:
     Value: !GetAtt Distribution.DomainName
   SiteUrl:

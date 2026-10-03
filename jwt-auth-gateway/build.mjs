@@ -4,7 +4,7 @@
  *
  *  - dist/auth-routes.mjs   the src/edge-auth Lambda@Edge handler (the /_auth/* routes)
  *  - dist/check-auth.cf.js   the CloudFront Function gate (src/cloudfront-gate)
- *  - dist/hosting.yaml       cloudformation/hosting.yaml with the gate's code embedded, because
+ *  - dist/hosting.yaml       _dev/cloudformation/hosting.yaml with the gate's code embedded, because
  *                            CloudFormation takes CloudFront Function code inline
  *
  * Lambda@Edge shapes this build:
@@ -17,7 +17,7 @@
  *    the keys on first use.
  */
 import { build } from "esbuild";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { bundleGateFunction } from "./tools/bundle-cloudfront.ts";
 
@@ -28,8 +28,6 @@ import { bundleGateFunction } from "./tools/bundle-cloudfront.ts";
  */
 const EDGE_HANDLERS = [{ entry: "src/edge-auth/index.ts", out: "auth-routes" }];
 const OUT_DIR = "dist";
-const TEMPLATE = "cloudformation/hosting.yaml";
-const CODE_PLACEHOLDER = /^( *)FunctionCode: "\/\/ Replaced by build\.mjs.*"$/m;
 
 if (existsSync(".env")) {
   process.loadEnvFile(".env");
@@ -86,17 +84,8 @@ function sessionKeys() {
 }
 
 /** Writes the hosting template with the gate's code in place of the FunctionCode placeholder. */
-function writeTemplate(gateCode) {
-  const template = readFileSync(TEMPLATE, "utf8");
-  if (!CODE_PLACEHOLDER.test(template)) {
-    throw new Error(`No FunctionCode placeholder found in ${TEMPLATE}.`);
-  }
-  const embedded = template.replace(CODE_PLACEHOLDER, (_line, indent) => {
-    const body = gateCode.trimEnd().split("\n").map((line) => `${indent}  ${line}`).join("\n");
-    return `${indent}FunctionCode: |\n${body}`;
-  });
-  writeFileSync(`${OUT_DIR}/hosting.yaml`, embedded);
-}
+// Removed: the stack is provisioned from _dev/cloudformation/hosting.yaml directly (stub gate) and
+// deploy-code.sh pushes the gate code to the live function. build.mjs no longer emits a template.
 
 async function main() {
   const region = required("COGNITO_REGION");
@@ -146,8 +135,10 @@ async function main() {
   const gateCode = await bundleGateFunction(gateConfig);
   writeFileSync(`${OUT_DIR}/check-auth.cf.js`, gateCode);
   console.log(`Bundled ${OUT_DIR}/check-auth.cf.js (${Buffer.byteLength(gateCode)} bytes)`);
-  writeTemplate(gateCode);
-  console.log(`Wrote ${OUT_DIR}/hosting.yaml`);
+  // No template is written: the hosting stack is provisioned once from _dev/cloudformation/hosting.yaml
+  // (which carries only a stub gate), and deploy-code.sh pushes this gate code to the live
+  // CloudFront Function in place. Keeping the real gate code out of any template also keeps the
+  // baked session keys out of every file except this build output.
 }
 
 main().catch((error) => {

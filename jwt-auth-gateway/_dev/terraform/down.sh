@@ -11,9 +11,9 @@ COGNITO_REGION="${COGNITO_REGION:-ap-southeast-2}"
 
 # Destroy reads variables but uses none that matter; placeholders keep it from prompting. The
 # hosting config also reads dist/, so an empty stand-in is enough if it's been cleaned.
-mkdir -p ../dist
-[[ -f ../dist/auth-routes.mjs ]] || : >../dist/auth-routes.mjs
-[[ -f ../dist/check-auth.cf.js ]] || : >../dist/check-auth.cf.js
+mkdir -p ../../dist
+[[ -f ../../dist/auth-routes.mjs ]] || : >../../dist/auth-routes.mjs
+[[ -f ../../dist/check-auth.cf.js ]] || : >../../dist/check-auth.cf.js
 
 function_name="$(tf hosting output -raw auth_routes_function 2>/dev/null || true)"
 

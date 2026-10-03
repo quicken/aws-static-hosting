@@ -46,7 +46,7 @@ The Trailhead Web Awesome example builds for `/sample/trailhead/webawesome` by d
 there:
 
 ```bash
-SITE_DIR=../../../trailhead/examples/webawesome-site/dist \
+SITE_DIR=../../../../trailhead/examples/webawesome-site/dist \
 SITE_PREFIX=sample/trailhead/webawesome \
 APP_BASE_PATH=/sample/trailhead/webawesome \
 ./up.sh

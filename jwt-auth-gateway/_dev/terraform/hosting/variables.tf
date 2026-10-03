@@ -7,7 +7,7 @@ variable "name" {
 variable "dist_dir" {
   type        = string
   description = "Where build.mjs wrote the functions."
-  default     = "../../dist"
+  default     = "../../../dist"
 }
 
 variable "domain_name" {

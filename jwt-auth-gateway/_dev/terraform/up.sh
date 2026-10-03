@@ -50,8 +50,8 @@ export APP_BASE_PATH="${APP_BASE_PATH:-}"
 export PUBLIC_PATHS="${PUBLIC_PATHS:-/public}"
 export API_ORIGIN_DOMAIN="${API_ORIGIN_DOMAIN:-}"
 export SESSION_KEY_PREVIOUS="${SESSION_KEY_PREVIOUS:-}"
-[[ -d ../node_modules ]] || (cd .. && npm ci)
-(cd .. && npm run build)
+[[ -d ../../node_modules ]] || (cd ../.. && npm ci)
+(cd ../.. && npm run build)
 
 echo "==> Hosting (us-east-1)"
 tf hosting apply -input=false -auto-approve "${hosting_vars[@]}"
