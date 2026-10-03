@@ -8,6 +8,7 @@ Code for hosting static JavaScript apps that use client-side routing (React, Vue
 | --- | --- |
 | [`jwt-auth-gateway/`](jwt-auth-gateway/README.md) | Cognito login at the edge (PKCE, HttpOnly cookies, silent refresh), per-app deep-link routing, an optional same-origin API proxy, and CloudFormation for the lot. Built to host Trailhead. |
 | [`basic-auth/`](basic-auth/README.md) | The Lambda@Edge function from the YouTube tutorial: SPA routing with optional basic authentication. Fine for a demo or staging site. |
+| [`example-site/`](example-site/README.md) | A dependency-free static site for testing the hosting approaches — a public landing page, public assets, a login-gated app, and an SPA with deep links. Upload it with the included `deploy-site.sh` to verify a deployment. |
 
 ## Hosting your JS app on AWS
 
