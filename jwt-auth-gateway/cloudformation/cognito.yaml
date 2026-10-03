@@ -1,37 +1,58 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Optional Cognito user pool for the jwt-auth-gateway: a pool, a hosted UI domain and a public
-  (PKCE, no secret) app client. Deploy to any region. Skip this if you already have a pool;
-  your app client needs the same settings as the one below.
+  Login experience for the example SaaS product: one Cognito user pool shared by every SPA and
+  the API backend, a hosted-UI domain running the newer Managed Login (branded sign-in), and a
+  public (PKCE, no secret) app client. This stack stands alone and deploys FIRST, before the
+  hosting/gateway stack exists -- leave SiteHost at its placeholder, then update this stack with
+  the hosting distribution's domain once that stack is up. Deploy to any region.
 
 Parameters:
   DomainPrefix:
     Type: String
+    Default: change-me-saas-demo
     AllowedPattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
-    Description: Hosted UI prefix, giving <prefix>.auth.<region>.amazoncognito.com. Must be globally unique.
+    Description: >-
+      Hosted UI prefix, giving <prefix>.auth.<region>.amazoncognito.com. Globally unique across
+      ALL AWS accounts, so override the placeholder default with your own before deploying.
   SiteHost:
     Type: String
+    Default: ""
     Description: >-
-      Host the apps are served from, e.g. apps.example.com or d111111abcdef8.cloudfront.net.
-      Without a custom domain, deploy the hosting stack first, then update this stack with its
-      DistributionDomainName output.
+      Host the apps are served from, e.g. apps.example.com or d111111abcdef8.cloudfront.net
+      (no scheme). Leave EMPTY on the first deploy -- the callback falls back to a localhost
+      placeholder nobody can sign in through. Deploy the hosting stack, then update this stack
+      with its DistributionDomainName to point the callback at the real site.
   AdminCreateUserOnly:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
     Description: Leave true for internal apps, so only administrators can create users.
 
+Conditions:
+  # Until the hosting side exists there is no site host to call back to. http://localhost is the
+  # one plain-http callback Cognito accepts, and nothing will ever sign in through it.
+  HasSiteHost: !Not [!Equals [!Ref SiteHost, ""]]
+
 Resources:
+  # The single identity source for the whole product: every SPA and the API backend trust tokens
+  # minted by this one pool, so "who is this user" has exactly one answer across the system.
   UserPool:
     Type: AWS::Cognito::UserPool
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    # DEMO: left deletable on purpose so `delete-stack` cleans everything up, user accounts
+    # included. For a real product, UNCOMMENT the two policies below so a stack delete or a
+    # replacing update can never take the pool (and every user in it) with it.
+    # DeletionPolicy: Retain
+    # UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub ${AWS::StackName}-users
+      # Email IS the identity -- there is no separate username to remember, and a verified email
+      # is required so password reset and the sign-in link always reach a real inbox.
       UsernameAttributes: [email]
       AutoVerifiedAttributes: [email]
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: !Ref AdminCreateUserOnly
+      # Length over symbol-soup (NIST 800-63B guidance): a 12-char minimum resists guessing far
+      # better than forcing a symbol into an 8-char password, which users satisfy with "Password1!".
       Policies:
         PasswordPolicy:
           MinimumLength: 12
@@ -45,6 +66,9 @@ Resources:
     Properties:
       UserPoolId: !Ref UserPool
       Domain: !Ref DomainPrefix
+      # Version 2 is the newer Managed Login (branding designer). Version 1 is the classic hosted
+      # UI. The ManagedLoginBranding resource below supplies the style this renders.
+      ManagedLoginVersion: 2
 
   # Public client: no secret, authorisation code grant only. The gateway always sends a PKCE
   # code_challenge, so Cognito insists on the matching verifier when the code is redeemed.
@@ -56,31 +80,57 @@ Resources:
       GenerateSecret: false
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows: [code]
+      # Minimal scope set: openid identifies the user, email/profile populate the id-token the gate
+      # forwards. No API scopes here on purpose -- authorisation is the API Gateway JWT authorizer's
+      # job, keyed on the id-token's audience, not on OAuth scopes the browser could see.
       AllowedOAuthScopes: [openid, email, profile]
       SupportedIdentityProviders: [COGNITO]
       CallbackURLs:
-        - !Sub https://${SiteHost}/_auth/callback
+        - !If
+          - HasSiteHost
+          - !Sub https://${SiteHost}/_auth/callback
+          - http://localhost/_auth/callback
       LogoutURLs:
-        - !Sub https://${SiteHost}/
+        - !If
+          - HasSiteHost
+          - !Sub https://${SiteHost}/
+          - http://localhost/
       ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
       EnableTokenRevocation: true
       PreventUserExistenceErrors: ENABLED
-      # Keep RefreshTokenValidity in step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/constants.ts.
-      IdTokenValidity: 60
-      AccessTokenValidity: 60
+      # id/access deliberately short: the gate forwards the id-token as the API Bearer, and its
+      # refresh flow silently mints a new one, so a 5-minute (Cognito's floor) token caps the blast
+      # radius of a leak with no visible churn. Refresh is the real session length -- keep it in
+      # step with REFRESH_TOKEN_MAX_AGE_SECONDS in src/lib/constants.ts (currently 30 days).
+      IdTokenValidity: 5
+      AccessTokenValidity: 5
       RefreshTokenValidity: 30
       TokenValidityUnits:
         IdToken: minutes
         AccessToken: minutes
         RefreshToken: days
 
+  # Applies Cognito's default polished Managed Login theme without designing anything. Edit later
+  # in the branding editor. With UseCognitoProvidedValues the Settings and Assets must be omitted.
+  ManagedLoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientId: !Ref AppClient
+      UseCognitoProvidedValues: true
+
 Outputs:
-  # Copy these into jwt-auth-gateway/.env.
+  # These four are the entire Cognito half of jwt-auth-gateway/.env -- each maps to one var the
+  # build (build.mjs) and deploy read. Copy them across after the stack settles.
   CognitoRegion:
+    # -> COGNITO_REGION
     Value: !Ref AWS::Region
   CognitoUserPoolId:
+    # -> COGNITO_USER_POOL_ID (also the JWKS issuer the edge-auth verifier trusts)
     Value: !Ref UserPool
   CognitoClientId:
+    # -> COGNITO_CLIENT_ID (and the `aud` the API Gateway authorizer must be configured for)
     Value: !Ref AppClient
   CognitoDomain:
+    # -> COGNITO_DOMAIN (hosted-UI host, no scheme)
     Value: !Sub ${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com
