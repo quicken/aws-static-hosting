@@ -64,9 +64,9 @@ Because the gate turns the session cookie into a Bearer token, `/api/*` only acc
 
 ## Deploy
 
-Just want to try it? [`terraform/`](terraform/README.md) spins up a pool, the hosting and a demo user with one command (`./up.sh`), and tears it all down again. The steps below are the reference deployment.
+Just want to try it? [`_dev/terraform/`](_dev/terraform/README.md) spins up a pool, the hosting and a demo user with one command (`./up.sh`), and tears it all down again. The steps below are the reference deployment.
 
-Prerequisites: Node.js 24+, the AWS CLI, and an existing S3 bucket in **us-east-1** for the deployment artefacts.
+Prerequisites: Node.js 24+ and the AWS CLI.
 
 ### 1. Cognito
 
@@ -76,7 +76,7 @@ Skip this step if you already have a user pool. Otherwise:
 aws cloudformation deploy \
   --region ap-southeast-2 \
   --stack-name static-hosting-auth \
-  --template-file cloudformation/cognito.yaml \
+  --template-file _dev/cloudformation/cognito.yaml \
   --parameter-overrides DomainPrefix=my-apps-login SiteHost=apps.example.com
 ```
 
@@ -138,7 +138,7 @@ s3://<BucketName>/
   ```
 
   Anonymous visitors get the shell and `/docs`. Following a nav link to `/billing` sends them through sign-in and back to `/billing`. Note that `shell.json`, and therefore the names of the members-only apps, is then public.
-- **Base path.** With `APP_BASE_PATH` empty, `/customers/*` resolves to `/customers/index.html`. If the site lives under a folder (Trailhead's `appBasePath`, e.g. `/apps`), set `APP_BASE_PATH` to the same value.
+- **Base path.** The default `APP_BASE_PATH` is `/app`, so `/app/customers/*` resolves to `/app/customers/index.html` and the root is left free for a public landing page. This must match the shell's own `appBasePath` (Trailhead prefixes nav links with it). Set `APP_BASE_PATH` empty to serve the shell straight off the root instead.
 - **API.** Point the shell at the same-origin proxy, `new Trailhead({ ..., apiUrl: "/api" })`, and set `API_ORIGIN_DOMAIN`. `shell.http.get("/orders")` then reaches `https://<api>/orders` carrying the user's id-token. There's no CORS and no token handling in the app.
 - **Sign-out.** Add a nav link to `/_auth/signout` with `"external": true` so the shell doesn't prefix it with `appBasePath`.
 - **Expired sessions.** A page load or a Trailhead navigation (a full page load by design) refreshes silently. An API call made after the id-token expires gets a `401`. Wrap calls that may run long after page load:
@@ -186,8 +186,9 @@ src/lib/gate.ts               the gate's logic (runs in the CloudFront Functions
 src/lib/                      routing, session stamp, cookies, JWT verification, OAuth/PKCE, responses
 tools/bundle-cloudfront.ts    bundles the gate into CloudFront Functions code
 src/types/config.ts      build-time configuration shape
-cloudformation/          hosting.yaml (us-east-1), cognito.yaml (optional, any region)
-terraform/               OpenTofu demo rig: up.sh / down.sh
+_dev/cloudformation/     hosting.yaml (us-east-1), cognito.yaml (optional, any region)
+_dev/terraform/          OpenTofu demo rig: up.sh / down.sh
+_dev/scripts/            provision.sh (stack, once), deploy-code.sh (function code, per change)
 ```
 
 ## Rotating the session key
