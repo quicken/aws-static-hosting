@@ -32,9 +32,16 @@ describe('/_auth/signin', () => {
     expect(header(result, 'location')).toContain('/oauth2/authorize');
   });
 
-  it('never redirects off-site', async () => {
+  // The return= param is attacker-controlled, so every hostile shape safeReturnPath guards must be
+  // proven to collapse to "/" at THIS boundary — not only in the isolated unit test — because this
+  // is the seam where return= actually becomes a Location header.
+  it.each([
+    ['protocol-relative //host', 'return=%2F%2Fevil.example'],
+    ['backslash bypass /\\host', 'return=%2F%5Cevil.example'],
+    ['CRLF header injection', 'return=%2Fok%0d%0aSet-Cookie:%20x'],
+  ])('never redirects off-site via %s', async (_label, querystring) => {
     stubCognito(tokens());
-    const result = await handler(createEvent('/_auth/signin', { querystring: 'return=%2F%2Fevil.example', cookies: '__Secure-rt=refresh-1' }));
+    const result = await handler(createEvent('/_auth/signin', { querystring, cookies: '__Secure-rt=refresh-1' }));
     expect(header(result, 'location')).toBe('/');
   });
 });
