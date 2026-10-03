@@ -3,32 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard SPA</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font: 16px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
-    nav a { margin-right: 1rem; color: #2563eb; }
-    #view { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 8px; padding: 1rem 1.25rem; margin-top: 1rem; }
-    code { background: color-mix(in srgb, currentColor 10%, transparent); padding: 0.1em 0.3em; border-radius: 4px; }
-    .path { opacity: 0.6; font-size: 0.85rem; }
-  </style>
+  <title>Dashboard — HerdingBits example</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
 </head>
 <body>
-  <h1>Dashboard SPA</h1>
-  <p class="path">Served from <code>/app/dashboard/index.html</code> for every route beneath
-  <code>/app/dashboard</code> — the gate rewrites deep links to this one file.</p>
+  <div class="wrap">
+    <header class="hb">
+      <img src="/assets/favicon.png" alt="HerdingBits">
+      <span class="brand">Herding<span>Bits</span></span>
+    </header>
 
-  <nav>
-    <a href="/app/dashboard" data-link>Home</a>
-    <a href="/app/dashboard/reports/42" data-link>Report 42</a>
-    <a href="/app/dashboard/settings" data-link>Settings</a>
-  </nav>
+    <p class="eyebrow">Advanced SPA · deep links</p>
+    <h1>Dashboard <span class="accent">SPA</span></h1>
+    <p class="lede">Served from <code>/app/dashboard/index.html</code> for every route beneath
+    <code>/app/dashboard</code> — the gate rewrites deep links to this one file, then the router
+    below takes over.</p>
 
-  <div id="view">Loading…</div>
+    <nav class="spa">
+      <a href="/app/dashboard" data-link>Home</a>
+      <a href="/app/dashboard/reports/42" data-link>Report 42</a>
+      <a href="/app/dashboard/settings" data-link>Settings</a>
+    </nav>
 
-  <p class="path">Reload the page on any route (e.g. hit refresh on <code>/reports/42</code>): it
-  survives a full reload because the gate maps the deep link back to this <code>index.html</code>,
-  then this router reads the path and renders the view.</p>
+    <div id="view">Loading…</div>
+
+    <p class="lede">Reload the page on any route (e.g. refresh on <code>/reports/42</code>): it
+    survives a full reload because the gate maps the deep link back to this
+    <code>index.html</code>, then this router reads the path and renders the view.</p>
+
+    <p class="footer"><span class="trail">🐾 Herding your bits up the trail.</span></p>
+  </div>
 
   <script>
     // Minimal client-side router. The gate serves THIS file for any path under /app/dashboard,
@@ -44,7 +49,7 @@
         view.innerHTML = "<h2>Home</h2><p>The dashboard landing view.</p>";
       } else if (seg[0] === "reports") {
         const id = seg[1] ? ` #${seg[1]}` : "";
-        view.innerHTML = `<h2>Report${id}</h2><p>Deep-linked report view. Path segment read client-side: <code>${location.pathname}</code></p>`;
+        view.innerHTML = `<h2>Report${id}</h2><p>Deep-linked report view. Path read client-side: <code>${location.pathname}</code></p>`;
       } else if (seg[0] === "settings") {
         view.innerHTML = "<h2>Settings</h2><p>The settings view.</p>";
       } else {
@@ -52,7 +57,6 @@
       }
     }
 
-    // Intercept same-app links so navigation is client-side (pushState), like a real SPA.
     document.addEventListener("click", (e) => {
       const a = e.target.closest("a[data-link]");
       if (!a) return;

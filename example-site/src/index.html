@@ -3,50 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>jwt-auth-gateway example site</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font: 16px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
-    h1 { margin-bottom: 0.2rem; }
-    .lede { opacity: 0.7; margin-top: 0; }
-    a { color: #2563eb; }
-    .card { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
-    code { background: color-mix(in srgb, currentColor 10%, transparent); padding: 0.1em 0.3em; border-radius: 4px; }
-    .tag { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; }
-  </style>
+  <title>HerdingBits — example site</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
 </head>
 <body>
-  <h1>Example site</h1>
-  <p class="lede">A dependency-free site for testing the three hosting scenarios. Upload it and click through.</p>
+  <div class="wrap">
+    <header class="hb">
+      <img src="/assets/favicon.png" alt="HerdingBits">
+      <span class="brand">Herding<span>Bits</span></span>
+    </header>
 
-  <div class="card">
-    <div class="tag">General hosting · public</div>
-    <p><strong>This page.</strong> Served from the bucket root. If you can read it without signing in,
-    the root is reachable (the gate redirects protected pages, but the landing page here is public
-    — see below).</p>
+    <p class="eyebrow">Herding your bits up the trail</p>
+    <h1>Example <span class="accent">site</span></h1>
+    <p class="lede">A dependency-free site for testing the three hosting scenarios. Upload it,
+    then click through — Feebee will show you around.</p>
+
+    <div class="card">
+      <div class="tag">General hosting · public</div>
+      <p><strong>This page.</strong> Served from the bucket root with no login — the public front
+      of the trail.</p>
+    </div>
+
+    <div class="card">
+      <div class="tag">Public path · no login</div>
+      <p><a href="/public/">/public/</a> — reachable with no session at all, because it sits under
+      <code>PUBLIC_PATHS</code> (default <code>/public</code>).</p>
+    </div>
+
+    <div class="card">
+      <div class="tag">Basic auth · the gate</div>
+      <p><a href="/app">/app</a> — a protected paddock. With no session Feebee herds you to the
+      Cognito login and back again. This is the gate doing its job.</p>
+    </div>
+
+    <div class="card">
+      <div class="tag">Advanced SPA · deep links</div>
+      <p><a href="/app/dashboard">/app/dashboard</a> — a single-page app with client-side routing.
+      Once signed in, try a deep link straight into a route, e.g.
+      <a href="/app/dashboard/reports/42">/app/dashboard/reports/42</a>. The gate rewrites it to
+      the app's <code>index.html</code> and the client router renders the right view — a full
+      reload, no 404.</p>
+    </div>
+
+    <p class="footer">HerdingBits example — see
+    <code>example-site/README.md</code> and <code>jwt-auth-gateway/_docs/VERIFICATION.md</code>.
+    <span class="trail">🐾 Herding your bits up the trail.</span></p>
   </div>
-
-  <div class="card">
-    <div class="tag">Public path · no login</div>
-    <p><a href="/public/">/public/</a> — reachable with no session at all, because it sits under
-    <code>PUBLIC_PATHS</code> (default <code>/public</code>).</p>
-  </div>
-
-  <div class="card">
-    <div class="tag">Basic auth · the gate</div>
-    <p><a href="/app">/app</a> — a protected shell. With no session you are bounced to the Cognito
-    login and returned here afterwards. This is the login gate doing its job.</p>
-  </div>
-
-  <div class="card">
-    <div class="tag">Advanced SPA · deep links</div>
-    <p><a href="/app/dashboard">/app/dashboard</a> — a single-page app with client-side routing.
-    Once signed in, try a deep link straight into a route, e.g.
-    <a href="/app/dashboard/reports/42">/app/dashboard/reports/42</a>. The gate rewrites it to the
-    app's <code>index.html</code> and the client router renders the right view — a full reload,
-    no 404.</p>
-  </div>
-
-  <p class="tag">jwt-auth-gateway example — see _docs/VERIFICATION.md</p>
 </body>
 </html>

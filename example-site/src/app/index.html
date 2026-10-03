@@ -3,20 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Protected app shell</title>
-  <style>
-    :root { color-scheme: light dark; }
-    body { font: 16px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
-    a { color: #2563eb; }
-    .ok { color: #16a34a; font-weight: 600; }
-  </style>
+  <title>Signed in — HerdingBits example</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
 </head>
 <body>
-  <h1>You're signed in <span class="ok">✓</span></h1>
-  <p>This page lives at <code>/app</code> and is <strong>not</strong> public. If you're reading it,
-  the gate found a valid session stamp — the whole PKCE → code-exchange → token-verify → HMAC-stamp
-  round trip completed, and the gate matched the stamp.</p>
-  <p>Now test the SPA deep-link behaviour: <a href="/app/dashboard">open the dashboard SPA →</a></p>
-  <p><a href="/_auth/signout">Sign out</a> (clears the session and ends the Cognito session).</p>
+  <div class="wrap">
+    <header class="hb">
+      <img src="/assets/favicon.png" alt="HerdingBits">
+      <span class="brand">Herding<span>Bits</span></span>
+    </header>
+
+    <p class="eyebrow">Basic auth · the gate</p>
+    <h1>You're in the paddock <span class="ok">✓</span></h1>
+    <p class="lede">This page lives at <code>/app</code> and is <strong>not</strong> public. If
+    you're reading it, the gate found a valid session stamp — the whole PKCE → code-exchange →
+    token-verify → HMAC-stamp round trip completed, and the gate matched the stamp.</p>
+
+    <div class="btn-row">
+      <a class="btn primary" href="/app/dashboard">Open the dashboard SPA →</a>
+      <a class="btn ghost" href="/_auth/signout">Sign out</a>
+    </div>
+    <p class="lede">Sign-out clears the session and ends the Cognito session.</p>
+
+    <p class="footer"><span class="trail">🐾 Herding your bits up the trail.</span></p>
+  </div>
 </body>
 </html>
