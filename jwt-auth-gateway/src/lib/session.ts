@@ -44,7 +44,9 @@ export function tokenExpiry(token: string): number | null {
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
     const claims = JSON.parse(atob(base64 + "===".slice((base64.length + 3) % 4)));
     return typeof claims.exp === "number" ? claims.exp : null;
-  } catch (error) {
+  } catch {
+    // A malformed or non-JSON payload has no readable expiry; the caller treats null as "no
+    // valid session", which is the safe outcome. Nothing to log in a per-request edge function.
     return null;
   }
 }

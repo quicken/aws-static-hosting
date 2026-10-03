@@ -140,7 +140,7 @@ async function callback(request: CloudFrontRequest, host: string): Promise<Cloud
   }
 
   const flow = unpackFlowState(parseCookies(request.headers)[COOKIE.flowState]);
-  if (!flow || flow.state !== state) {
+  if (flow?.state !== state) {
     return textResponse("400", "Bad Request", "Sign-in state is missing or doesn't match. Please try again.");
   }
 
