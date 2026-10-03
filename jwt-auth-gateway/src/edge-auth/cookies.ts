@@ -9,6 +9,13 @@ export interface CookieOptions {
   maxAgeSeconds?: number;
   /** Defaults to `Lax`: the cookie must survive the top-level redirect back from Cognito. */
   sameSite?: "Strict" | "Lax";
+  /**
+   * Cookie `Domain`. Omitted by default, which host-pins the cookie — the secure default, and
+   * what `__Host-` prefixed names require. Set it (e.g. `.app.example.com`) ONLY for deliberate
+   * cross-subdomain SSO, which also means dropping the `__Host-` prefix for `__Secure-`. See the
+   * multi-tenancy design note (`_ai/multi-tenancy-auth-herdingbits.md`) before using it.
+   */
+  domain?: string;
 }
 
 /**
@@ -37,8 +44,9 @@ export function parseCookies(headers: CloudFrontHeaders): Record<string, string>
 
 /**
  * Builds a `Set-Cookie` value. Every cookie this gateway sets is `Secure` and `HttpOnly`, so no
- * token is ever readable by JavaScript in any of the hosted apps. There is deliberately no
- * `Domain` attribute: cookies stay on the exact host that set them.
+ * token is ever readable by JavaScript in any of the hosted apps. By default there is no `Domain`
+ * attribute — cookies stay on the exact host that set them, which is what `__Host-` names require.
+ * A `Domain` is emitted only when `options.domain` is given, for deliberate cross-subdomain SSO.
  */
 export function serializeCookie(name: string, value: string, options: CookieOptions = {}): string {
   const parts = [
@@ -48,6 +56,9 @@ export function serializeCookie(name: string, value: string, options: CookieOpti
     "HttpOnly",
     `SameSite=${options.sameSite ?? "Lax"}`,
   ];
+  if (options.domain !== undefined) {
+    parts.push(`Domain=${options.domain}`);
+  }
   if (options.maxAgeSeconds !== undefined) {
     parts.push(`Max-Age=${options.maxAgeSeconds}`);
   }
