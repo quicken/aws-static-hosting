@@ -1,7 +1,8 @@
-# Example site (`src/`)
+# Example site
 
 A dependency-free static site for testing any of the hosting approaches in this repo — general
-hosting, basic-auth, and the `jwt-auth-gateway` SPA scenario. No build step: plain HTML/CSS/JS.
+hosting, basic-auth, and the `jwt-auth-gateway` SPA scenario. No build step: plain HTML/CSS/JS,
+lightly branded for HerdingBits (Feebee says hello).
 
 ## Upload
 
@@ -32,11 +33,15 @@ For the jwt-auth-gateway scenario, pair this with its verification runbook:
 ## Layout
 
 ```
-src/
-  index.html                landing page (bucket root), public
-  public/index.html         a page under PUBLIC_PATHS, no login
-  app/index.html            protected shell at /app (login required)
-  app/dashboard/index.html  SPA; serves every /app/dashboard/* route (deep links)
+example-site/
+  README.md                   this file
+  _dev/scripts/deploy-site.sh upload script (run from example-site/)
+  src/                        the site itself (synced to the bucket root)
+    index.html                landing page, public
+    assets/                   shared CSS and favicon (HerdingBits sky-blue in the header)
+    public/index.html         a page under PUBLIC_PATHS, no login
+    app/index.html            protected shell at /app (login required)
+    app/dashboard/index.html  SPA; serves every /app/dashboard/* route (deep links)
 ```
 
 The matching gate behaviour (jwt-auth-gateway, `APP_BASE_PATH=/app`): an extensionless path like
