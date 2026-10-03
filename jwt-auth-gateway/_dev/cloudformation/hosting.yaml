@@ -2,8 +2,9 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   Private static hosting for single page apps (e.g. a Trailhead shell and its apps): a private S3
   bucket behind CloudFront, gated by a Cognito login at the edge. Deploy to us-east-1, where
-  Lambda@Edge functions must live. Deploy with deploy.sh: it deploys dist/hosting.yaml, the
-  copy of this template that build.mjs writes with the gate's code embedded.
+  Lambda@Edge functions must live. Provisioned ONCE by _dev/scripts/provision.sh (the function
+  shells ship with stubs); real function code is rolled out separately by _dev/scripts/deploy-code.sh,
+  so this stack is never touched by a code deploy. See _docs/DEPLOYMENT.md for the full sequence.
 
 # Behaviour routing (most specific first):
 #   /_auth/*        auth-routes  Lambda@Edge, viewer-request          sign-in, callback, refresh, sign-out
@@ -69,6 +70,12 @@ Resources:
   # ---------------------------------------------------------------------------
   OriginBucket:
     Type: AWS::S3::Bucket
+    # Private origin: the ONLY way in is CloudFront with a signed OAC request (policy below). The
+    # four public-access blocks + BucketOwnerEnforced mean nothing can make an object public, even
+    # by accident — the login gate is the only front door.
+    # DEMO: retained on purpose so a stack delete can't wipe uploaded content. For a throwaway demo
+    # you may prefer this deletable; for anything real keep Retain so content and the bucket name
+    # (globally unique, slow to free) survive a stack replace.
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
@@ -85,6 +92,8 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
 
+  # Lets CloudFront sign its S3 reads with SigV4 so the bucket can stay fully private — the modern
+  # replacement for Origin Access Identity, and required for SSE and newer regions.
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -131,6 +140,10 @@ Resources:
   # IaC (the `ignore_changes = [lambda_function_association]` pattern), so a port carries over
   # without the versioned-ARN churn that forced a stack update per deploy.
   # ---------------------------------------------------------------------------
+  # Execution role for auth-routes. Trusts BOTH lambda and edgelambda: a Lambda@Edge function is
+  # created as a normal Lambda (lambda.amazonaws.com) but invoked at the edge by CloudFront
+  # (edgelambda.amazonaws.com), so both principals must be allowed to assume it. Basic-execution
+  # only — the function needs nothing beyond CloudWatch Logs.
   EdgeFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -196,6 +209,8 @@ Resources:
             DomainName: !GetAtt OriginBucket.RegionalDomainName
             OriginAccessControlId: !GetAtt OriginAccessControl.Id
             S3OriginConfig:
+              # Empty string is required: it tells CloudFront this origin uses OAC (above), not the
+              # legacy Origin Access Identity. A non-empty value here would select the old mechanism.
               OriginAccessIdentity: ""
           - !If
             - HasApiOrigin
