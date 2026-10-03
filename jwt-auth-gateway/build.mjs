@@ -88,6 +88,15 @@ function sessionKeys() {
 // deploy-code.sh pushes the gate code to the live function. build.mjs no longer emits a template.
 
 async function main() {
+  // CI runs `npm run build` for type-safety (the `tsc --noEmit` half of the script), but has no
+  // deployment config and no business baking a deployable bundle. When the required deploy vars
+  // are absent — no .env and nothing in the environment — skip the bundling and exit cleanly, so
+  // the shared build workflow passes on type-check alone. A real deploy always has these set.
+  if (!process.env.COGNITO_REGION && !process.env.SESSION_KEY) {
+    console.log("No deployment config (COGNITO_REGION / SESSION_KEY) present — skipping the deploy bundle (CI/type-check-only build).");
+    return;
+  }
+
   const region = required("COGNITO_REGION");
   const userPoolId = required("COGNITO_USER_POOL_ID");
   const keys = sessionKeys();
