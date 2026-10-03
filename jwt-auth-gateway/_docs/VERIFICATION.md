@@ -20,8 +20,14 @@ POOL_ID=<CognitoUserPoolId>
 ## Step 0 — Upload the example site
 
 The checks below assume content is in the bucket. This repo ships a dependency-free test site
-(`example-site/`) that exercises every path the layers test — general hosting, a public path,
-the login gate, and an SPA with deep links. Upload it first.
+(`example-site/`) that exercises every path the layers test — general hosting at `/`, public
+static assets under `/public/*`, the login gate on `/app`, and an SPA with deep links. Upload it
+first.
+
+> **If you just pulled the `/public/*` + `DefaultRootObject` commit:** that is a *stack* change
+> (a new cache behaviour and a distribution setting), so re-run **`provision.sh`** before
+> `deploy-code.sh` — `deploy-code.sh` alone won't apply it. Also set `PUBLIC_PATHS=/` in your
+> live `.env`.
 
 From the **`example-site/`** directory:
 
@@ -43,10 +49,12 @@ curl -sI "$SITE/" | head -1
 ```
 
 **Expect `HTTP/2 200`** — with the example site uploaded, `/` is the public landing page, so it
-is served without a login. (If you deployed your *own* content and made the root protected,
-expect `302` to `/_auth/signin` instead.) A **403** means the gate is attached but S3 has no
-object at `/` — did the upload (Step 0) run? The gate's redirect behaviour is tested at `/app`
-in Layer 2.
+is served without a login. Two things make that work: `DefaultRootObject: index.html` maps `/` to
+`/index.html` at the CloudFront level (before the origin fetch), and `PUBLIC_PATHS=/` tells the
+gate the root is public. (If you deployed your *own* content and made the root protected, expect
+`302` to `/_auth/signin` instead.) A **403** means either the upload (Step 0) didn't run so S3 has
+no `index.html`, or `DefaultRootObject` isn't set — did `provision.sh` run after the `/public`
+commit? The gate's redirect behaviour is tested at `/app` in Layer 2.
 
 ---
 
@@ -175,7 +183,8 @@ Gateway JWT authorizer then validates the token for real.
 
 | Symptom | Most likely layer | Look at |
 |---|---|---|
-| `/` returns 200 for anonymous | Gate not attached | default behaviour's `FunctionAssociations` |
+| `/app` returns 200 for anonymous | Gate not attached | default behaviour's `FunctionAssociations` |
+| `/` returns 403 for anonymous | `DefaultRootObject` missing | re-run `provision.sh`; `DefaultRootObject: index.html` on the distribution |
 | Everything returns 403 | S3/OAC or stub still live | OAC policy; did `deploy-code.sh` run? |
 | `/_auth/*` returns 403 | Lambda@Edge not associated/propagated | wait 5–15 min, re-run `deploy-code.sh` |
 | `/_auth/*` returns 503 | bootstrap stub still live | `deploy-code.sh` didn't push code |
