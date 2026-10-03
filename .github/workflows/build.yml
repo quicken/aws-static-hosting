@@ -1,0 +1,109 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover packages
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.find.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Each project directory has its own package.json (no root package, no workspaces).
+      # Only projects with changed files are built; anything that can't be diffed
+      # (manual run, new branch, force push) or touches shared config builds all.
+      - id: find
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          all=$(find . -name package.json \
+              -not -path '*/node_modules/*' \
+              -exec dirname {} \; | sed 's#^\./##' | sort)
+
+          if [ "$EVENT" = workflow_dispatch ] || ! changed=$(git diff --name-only "$BASE...$HEAD" 2>/dev/null); then
+            echo "No usable diff base; building everything"
+            selected=$all
+          elif grep -qE '^\.github/workflows/build\.yml$' <<<"$changed"; then
+            echo "Shared config changed; building everything"
+            selected=$all
+          else
+            selected=$(for d in $all; do grep -q "^$d/" <<<"$changed" && echo "$d"; done || true)
+          fi
+
+          echo "Selected:"; echo "${selected:-  (none)}"
+          echo "packages=$(printf '%s' "$selected" | jq -Rnc '[inputs | select(length > 0)]')" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.dir }}
+    needs: discover
+    if: needs.discover.outputs.packages != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.discover.outputs.packages) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    env:
+      # Empty on PRs from forks, which don't get secrets; the scan is skipped there.
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Sonar needs full history for blame / new-code detection
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Not every project commits a lockfile; those get a plain install.
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          elif [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - run: npm run build --if-present
+
+      - name: Test
+        run: |
+          if [ -f node_modules/vitest/package.json ]; then
+            if [ ! -d node_modules/@vitest/coverage-v8 ]; then
+              v=$(node -p "require('./node_modules/vitest/package.json').version")
+              npm i --no-save --no-audit --no-fund "@vitest/coverage-v8@$v"
+            fi
+            npx vitest run --passWithNoTests \
+              --coverage.enabled --coverage.provider=v8 --coverage.reporter=lcov
+          else
+            npm test --if-present
+          fi
+
+      - name: Check for Sonar config
+        id: sonar
+        run: |
+          if [ -f sonar-project.properties ] && [ -n "$SONAR_TOKEN" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: SonarQube Scan
+        if: steps.sonar.outputs.enabled == 'true'
+        uses: SonarSource/sonarqube-scan-action@v8
+        with:
+          projectBaseDir: ${{ matrix.dir }}
