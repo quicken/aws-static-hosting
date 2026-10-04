@@ -44,7 +44,11 @@ Resources:
     # DeletionPolicy: Retain
     # UpdateReplacePolicy: Retain
     Properties:
-      UserPoolName: !Sub ${AWS::StackName}-users
+      UserPoolName: !Sub ${AWS::StackName}-aws-static-hosting-users
+      # Cognito tags are a MAP (UserPoolTags), not the Tags list the other resources take.
+      UserPoolTags:
+        project: aws-static-hosting
+        deployment: !Ref AWS::StackName
       # Email IS the identity -- there is no separate username to remember, and a verified email
       # is required so password reset and the sign-in link always reach a real inbox.
       UsernameAttributes: [email]
@@ -65,6 +69,8 @@ Resources:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
       UserPoolId: !Ref UserPool
+      # EXEMPT from the -aws-static-hosting- literal: this is a globally-unique hosted-UI hostname
+      # capped at 63 chars, so it keeps its bare prefix rather than the longer naming convention.
       Domain: !Ref DomainPrefix
       # Version 2 is the newer Managed Login (branding designer). Version 1 is the classic hosted
       # UI. The ManagedLoginBranding resource below supplies the style this renders.
@@ -76,7 +82,7 @@ Resources:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       UserPoolId: !Ref UserPool
-      ClientName: !Sub ${AWS::StackName}-edge-gateway
+      ClientName: !Sub ${AWS::StackName}-aws-static-hosting-edge-gateway
       GenerateSecret: false
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows: [code]

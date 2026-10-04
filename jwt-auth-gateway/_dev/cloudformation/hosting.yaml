@@ -100,14 +100,21 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      Tags:
+        - Key: project
+          Value: aws-static-hosting
+        - Key: deployment
+          Value: !Ref AWS::StackName
 
   # Lets CloudFront sign its S3 reads with SigV4 so the bucket can stay fully private — the modern
   # replacement for Origin Access Identity, and required for SSE and newer regions.
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
+    # NOT taggable in CloudFormation (AWS::CloudFront::OriginAccessControl has no Tags property),
+    # so no project/deployment tags here.
     Properties:
       OriginAccessControlConfig:
-        Name: !Sub ${AWS::StackName}-oac
+        Name: !Sub ${AWS::StackName}-aws-static-hosting-oac
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -165,6 +172,11 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: project
+          Value: aws-static-hosting
+        - Key: deployment
+          Value: !Ref AWS::StackName
 
   AuthRoutesFunction:
     Type: AWS::Lambda::Function
@@ -180,14 +192,21 @@ Resources:
       Role: !GetAtt EdgeFunctionRole.Arn
       MemorySize: 128
       Timeout: 5
+      Tags:
+        - Key: project
+          Value: aws-static-hosting
+        - Key: deployment
+          Value: !Ref AWS::StackName
 
   # The per-request gate. deploy-code.sh updates its code in place (stable ARN, no stack churn).
   # Provisioned with a minimal pass-through stub so the resource and its distribution
   # association are valid before the first code deploy.
   CheckAuthFunction:
     Type: AWS::CloudFront::Function
+    # NOT taggable in CloudFormation (AWS::CloudFront::Function has no Tags property), so no
+    # project/deployment tags here.
     Properties:
-      Name: !Sub ${AWS::StackName}-check-auth
+      Name: !Sub ${AWS::StackName}-aws-static-hosting-check-auth
       AutoPublish: true
       FunctionConfig:
         Comment: Viewer-request login gate and deep-link rewrite.
@@ -200,9 +219,14 @@ Resources:
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
+      Tags:
+        - Key: project
+          Value: aws-static-hosting
+        - Key: deployment
+          Value: !Ref AWS::StackName
       DistributionConfig:
         Enabled: true
-        Comment: !Sub ${AWS::StackName} - static apps behind a Cognito login at the edge
+        Comment: !Sub ${AWS::StackName}-aws-static-hosting - static apps behind a Cognito login at the edge
         # Maps a request for "/" to "/index.html" at the CloudFront level (S3 behind OAC has no
         # directory index of its own). Only the distribution root — subfolder indexes under /app
         # are resolved by the gate's deep-link rewrite instead.
@@ -311,7 +335,7 @@ Outputs:
     Value: !Ref AuthRoutesFunction
   CheckAuthFunctionName:
     Description: CloudFront Function deploy-code.sh updates in place.
-    Value: !Sub ${AWS::StackName}-check-auth
+    Value: !Sub ${AWS::StackName}-aws-static-hosting-check-auth
   DistributionDomainName:
     Value: !GetAtt Distribution.DomainName
   SiteUrl:

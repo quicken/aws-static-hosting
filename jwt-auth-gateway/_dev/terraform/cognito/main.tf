@@ -18,6 +18,15 @@ terraform {
 
 provider "aws" {
   region = var.region
+
+  # Organising tags applied to every taggable resource; keys and values lowercase. Idiomatic
+  # provider-wide default rather than hand-tagging each resource.
+  default_tags {
+    tags = {
+      project    = "aws-static-hosting"
+      deployment = var.name
+    }
+  }
 }
 
 locals {
@@ -34,7 +43,7 @@ resource "random_string" "domain_suffix" {
 }
 
 resource "aws_cognito_user_pool" "this" {
-  name                     = "${var.name}-users"
+  name                     = "${var.name}-aws-static-hosting-users"
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
   deletion_protection      = "INACTIVE"
@@ -54,7 +63,9 @@ resource "aws_cognito_user_pool" "this" {
 
 resource "aws_cognito_user_pool_domain" "this" {
   user_pool_id = aws_cognito_user_pool.this.id
-  domain       = "${var.name}-${random_string.domain_suffix.result}"
+  # EXEMPT from the -aws-static-hosting- literal: this is a globally-unique hosted-UI hostname
+  # capped at 63 chars, so it keeps its bare prefix + random suffix rather than the convention.
+  domain = "${var.name}-${random_string.domain_suffix.result}"
   # Version 2 is the newer Managed Login (branding designer); the branding resource below supplies
   # the style it renders. Version 1 is the classic hosted UI.
   managed_login_version = 2
@@ -64,7 +75,7 @@ resource "aws_cognito_user_pool_domain" "this" {
 # code_challenge, so Cognito insists on the matching verifier when the code is redeemed.
 resource "aws_cognito_user_pool_client" "this" {
   user_pool_id                         = aws_cognito_user_pool.this.id
-  name                                 = "${var.name}-edge-gateway"
+  name                                 = "${var.name}-aws-static-hosting-edge-gateway"
   generate_secret                      = false
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]

@@ -23,6 +23,15 @@ terraform {
 # Lambda@Edge functions must live in us-east-1, and so must a CloudFront certificate.
 provider "aws" {
   region = "us-east-1"
+
+  # Organising tags applied to every taggable resource; keys and values lowercase. Idiomatic
+  # provider-wide default rather than hand-tagging each resource.
+  default_tags {
+    tags = {
+      project    = "aws-static-hosting"
+      deployment = var.name
+    }
+  }
 }
 
 locals {
@@ -52,7 +61,7 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
 # SSE-S3 by default. force_destroy lets down.sh remove it with the apps still in it.
 # ---------------------------------------------------------------------------
 resource "aws_s3_bucket" "origin" {
-  bucket_prefix = "${var.name}-"
+  bucket_prefix = "${var.name}-aws-static-hosting-origin-"
   force_destroy = true
 }
 
@@ -72,7 +81,7 @@ resource "aws_s3_bucket_ownership_controls" "origin" {
 }
 
 resource "aws_cloudfront_origin_access_control" "this" {
-  name                              = "${var.name}-oac"
+  name                              = "${var.name}-aws-static-hosting-oac"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -100,7 +109,7 @@ resource "aws_s3_bucket_policy" "origin" {
 # Edge functions
 # ---------------------------------------------------------------------------
 resource "aws_iam_role" "edge" {
-  name_prefix = "${var.name}-edge-"
+  name_prefix = "${var.name}-aws-static-hosting-edge-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -130,7 +139,7 @@ data "archive_file" "auth_routes" {
 # and replicas take hours to clear after the distribution goes. Destroy forgets the function
 # instead; down.sh prints the command to delete it later.
 resource "aws_lambda_function" "auth_routes" {
-  function_name    = "${var.name}-auth-routes"
+  function_name    = "${var.name}-aws-static-hosting-auth-routes"
   description      = "Viewer-request /_auth/* endpoints (sign-in, callback, refresh, sign-out)."
   runtime          = "nodejs24.x"
   handler          = "auth-routes.handler"
@@ -145,7 +154,7 @@ resource "aws_lambda_function" "auth_routes" {
 
 # The per-request gate.
 resource "aws_cloudfront_function" "check_auth" {
-  name    = "${var.name}-check-auth"
+  name    = "${var.name}-aws-static-hosting-check-auth"
   comment = "Viewer-request login gate and deep-link rewrite."
   runtime = "cloudfront-js-2.0"
   publish = true
@@ -157,7 +166,7 @@ resource "aws_cloudfront_function" "check_auth" {
 # ---------------------------------------------------------------------------
 resource "aws_cloudfront_distribution" "this" {
   enabled         = true
-  comment         = "${var.name} - static apps behind a Cognito login at the edge"
+  comment         = "${var.name}-aws-static-hosting - static apps behind a Cognito login at the edge"
   http_version    = "http2and3"
   is_ipv6_enabled = true
   price_class     = var.price_class
