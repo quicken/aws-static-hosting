@@ -10,6 +10,8 @@ Code for hosting static JavaScript apps that use client-side routing (React, Vue
 | [`basic-auth/`](basic-auth/README.md) | The Lambda@Edge function from the YouTube tutorial: SPA routing with optional basic authentication. Fine for a demo or staging site. |
 | [`example-site/`](example-site/README.md) | A dependency-free static site for testing the hosting approaches — a public landing page, public assets, a login-gated app, and an SPA with deep links. Upload it with the included `deploy-site.sh` to verify a deployment. |
 
+Want to run the auth gateway in your own AWS account? [`jwt-auth-gateway/_docs/USAGE.md`](jwt-auth-gateway/_docs/USAGE.md) is a one-page quickstart — use it as a GitHub template or clone it and track upstream for patches.
+
 ## Hosting your JS app on AWS
 
 The YouTube tutorial walks through the whole setup by hand, using the `basic-auth` function:

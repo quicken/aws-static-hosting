@@ -2,6 +2,8 @@
 
 Puts a Cognito login in front of static single page apps hosted on S3 and CloudFront. It's built to host a [Trailhead](https://github.com/quicken/trailhead) shell and its apps, but it works with any set of SPAs that each live in their own folder.
 
+> **Using this in your own project?** See [`_docs/USAGE.md`](_docs/USAGE.md) — a one-page quickstart. The short version: you edit `.env`, not `src/`, so you can keep pulling upstream patches. Full runbook in [`_docs/DEPLOYMENT.md`](_docs/DEPLOYMENT.md).
+
 - The whole login happens at the edge: OAuth authorisation code flow with PKCE against a **public** Cognito client. There is no OAuth client secret.
 - Tokens live in `HttpOnly; Secure` cookies. No JavaScript in any hosted app can read them.
 - The id-token expires after 5 minutes, but a page load refreshes it silently. API calls get a `401` and can refresh with one `POST`.
